@@ -2,12 +2,21 @@ import React, { useEffect } from 'react';
 import { Routes, Route } from 'react-router';
 import Layout from './components/Layout';
 import PostList from './components/PostList';
-import PostDetail from './components/PostDetail';
 import NotFound from './components/NotFound';
 import GlitchText from './components/GlitchText';
-import NetPage from './components/NetPage';
-import GearPage from './components/GearPage';
 import { useProfile } from './contexts/ProfileContext';
+
+interface RoutePages {
+  PostDetail: React.ComponentType;
+  NetPage: React.ComponentType;
+  GearPage: React.ComponentType;
+}
+
+const clientPages: RoutePages = {
+  PostDetail: React.lazy(() => import('./components/PostDetail')),
+  NetPage: React.lazy(() => import('./components/NetPage')),
+  GearPage: React.lazy(() => import('./components/GearPage'))
+};
 
 const GenericPage: React.FC<{ title: string }> = ({ title }) => {
   const { resetProfile } = useProfile();
@@ -24,20 +33,22 @@ const GenericPage: React.FC<{ title: string }> = ({ title }) => {
         </h1>
         <div className="h-1 w-24 bg-cyber-yellow mx-auto mb-4"></div>
         <p className="text-cyber-cyan font-mono text-sm md:text-base tracking-widest">
-          SYSTEM MESSAGE // SECTOR UNDER CONSTRUCTION
+          系统消息 // 本区域建设中
         </p>
       </div>
     </div>
   );
 };
 
-export function AppRoutes() {
+export function AppRoutes({ pages = clientPages }: { pages?: RoutePages }) {
+  const { PostDetail, NetPage, GearPage } = pages;
+
   return (
     <Routes>
       <Route path="/" element={<Layout />}>
         <Route index element={<PostList />} />
         <Route path="net" element={<NetPage />} />
-        <Route path="data" element={<GenericPage title="DATA ARCHIVES" />} />
+        <Route path="data" element={<GenericPage title="数据档案" />} />
         <Route path="gear" element={<GearPage />} />
         <Route path=":year/:month/:day/:slug" element={<PostDetail />} />
         <Route path="*" element={<NotFound />} />

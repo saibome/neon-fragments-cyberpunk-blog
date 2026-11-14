@@ -1,27 +1,25 @@
-FROM node:20-alpine
+FROM node:20-alpine AS build
 
 WORKDIR /app
+RUN corepack enable
 
-# Copy package files
-COPY package.json ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --frozen-lockfile
 
-# Install production dependencies
-RUN npm install --production
+COPY . .
+RUN pnpm build
 
-# Copy built assets and server code
-COPY dist ./dist
+FROM node:20-alpine AS runtime
 
-# Copy empty services/posts.json (or the one from build if needed, but user wants empty)
-# We assume the zip contains services/posts.json
-COPY services ./services
+WORKDIR /app
+ENV NODE_ENV=production
+RUN corepack enable
 
-# Copy public assets if any (Vite puts them in dist/client, but if there are others...)
-# COPY public ./public
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+RUN pnpm install --prod --frozen-lockfile
+
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/services/posts.json ./services/posts.json
 
 EXPOSE 3000
-
-# Set NODE_ENV to production
-ENV NODE_ENV=production
-
-# Run the server
 CMD ["node", "dist/server/index.js"]

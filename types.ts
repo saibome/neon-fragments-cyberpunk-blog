@@ -15,6 +15,21 @@ export interface BlogPost {
   next?: { slug: string; title: string; date: string };
 }
 
+export interface PostListResult {
+  posts: BlogPost[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  queryKey: string;
+}
+
+export interface InitialData {
+  posts: BlogPost[];
+  list?: PostListResult;
+  resolvedSlug?: string;
+}
+
 export interface UserProfile {
   name: string;
   handle: string;

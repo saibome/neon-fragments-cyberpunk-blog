@@ -3,7 +3,6 @@ import { useParams, useNavigate, Link, useLocation } from 'react-router';
 import { Helmet } from 'react-helmet-async';
 import { BlogPost } from '../types';
 import { useData } from '../contexts/DataContext';
-import { useProfile } from '../contexts/ProfileContext';
 import { ArrowLeft, Share2, ThumbsUp, MessageSquare, AlertOctagon } from 'lucide-react';
 import CyberButton from './CyberButton';
 import GlitchText from './GlitchText';
@@ -19,26 +18,16 @@ const PostDetail: React.FC = () => {
   const { year, month, day, slug } = useParams<{ year: string; month: string; day: string; slug: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const { posts } = useData();
-  const { setProfile, resetProfile } = useProfile();
+  const { posts, resolvedSlug } = useData();
 
   // Initialize directly from context for SSR support
   const foundPost = posts.find(p => p.slug === slug);
   const [post, setPost] = useState<BlogPost | null>(foundPost || null);
-  const [loading, setLoading] = useState(!foundPost);
+  const [loading, setLoading] = useState(!foundPost && resolvedSlug !== slug);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   useEffect(() => {
-    if (post) {
-      setProfile(post.author);
-    }
-    return () => {
-      resetProfile();
-    };
-  }, [post, setProfile, resetProfile]);
-
-  useEffect(() => {
-    if (post?.slug === slug) return;
+    if (post?.slug === slug || (resolvedSlug === slug && !post)) return;
 
     setLoading(true);
     const found = posts.find(p => p.slug === slug);
@@ -61,7 +50,7 @@ const PostDetail: React.FC = () => {
           setPost(null);
         });
     }
-  }, [slug, posts, post]);
+  }, [slug, posts, post, resolvedSlug]);
 
   const contentRef = React.useRef<HTMLDivElement>(null);
 
@@ -125,7 +114,7 @@ const PostDetail: React.FC = () => {
 
         // Language label
         const code = pre.querySelector('code') as HTMLElement | null;
-        let lang = 'TEXT';
+        let lang = '文本';
         let rawLang = 'text';
         if (code) {
           const classes = code.className.split(' ');
@@ -154,10 +143,10 @@ const PostDetail: React.FC = () => {
         if (isWrapped) {
              pre.style.whiteSpace = 'pre-wrap';
              pre.style.wordBreak = 'break-word';
-             wrapBtn.innerHTML = '[ UNWRAP ]';
+             wrapBtn.innerHTML = '[ 取消换行 ]';
              wrapBtn.classList.add('text-cyber-cyan');
         } else {
-             wrapBtn.innerHTML = '[ WRAP ]';
+             wrapBtn.innerHTML = '[ 自动换行 ]';
         }
 
         wrapBtn.onclick = () => {
@@ -165,12 +154,12 @@ const PostDetail: React.FC = () => {
           if (isWrapped) {
             pre.style.whiteSpace = 'pre-wrap';
             pre.style.wordBreak = 'break-word';
-            wrapBtn.innerHTML = '[ UNWRAP ]';
+            wrapBtn.innerHTML = '[ 取消换行 ]';
             wrapBtn.classList.add('text-cyber-cyan');
           } else {
             pre.style.whiteSpace = 'pre';
             pre.style.wordBreak = 'normal';
-            wrapBtn.innerHTML = '[ WRAP ]';
+            wrapBtn.innerHTML = '[ 自动换行 ]';
             wrapBtn.classList.remove('text-cyber-cyan');
           }
         };
@@ -178,19 +167,19 @@ const PostDetail: React.FC = () => {
         // Copy Button
         const copyBtn = document.createElement('button');
         copyBtn.className = 'text-xs font-mono text-gray-400 hover:text-cyber-cyan transition-colors flex items-center cursor-pointer glitch-hover';
-        copyBtn.innerHTML = '[ COPY ]';
+        copyBtn.innerHTML = '[ 复制 ]';
         copyBtn.onclick = async () => {
           const text = code?.innerText || pre.innerText;
           try {
             await navigator.clipboard.writeText(text);
-            copyBtn.innerHTML = '[ COPIED! ]';
+            copyBtn.innerHTML = '[ 已复制 ]';
             copyBtn.classList.add('text-cyber-cyan');
 
             // Add temporary glitch effect on click
             copyBtn.style.animation = 'glitch-skew 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) both infinite';
 
             setTimeout(() => {
-              copyBtn.innerHTML = '[ COPY ]';
+              copyBtn.innerHTML = '[ 复制 ]';
               copyBtn.classList.remove('text-cyber-cyan');
               copyBtn.style.animation = '';
             }, 2000);
@@ -216,7 +205,7 @@ const PostDetail: React.FC = () => {
   }, [post]);
 
   if (loading) {
-    return <div className="text-white text-center mt-20">DECRYPTING DATA STREAM...</div>;
+    return <div className="text-white text-center mt-20">正在解密数据流……</div>;
   }
 
   if (!post) {
@@ -254,12 +243,12 @@ const PostDetail: React.FC = () => {
   const ogImage = `${BASE_URL}/card/${yearStr}/${monthStr}/${dayStr}/${post.slug}.png`;
 
   const plainTextContent = post.content.replace(/<[^>]+>/g, '');
-  const description = post.description || plainTextContent.substring(0, 150) + '...';
+  const description = post.description || plainTextContent.substring(0, 150) + '……';
 
   return (
     <div className="bg-cyber-dark min-h-full relative border-t-4 border-cyber-yellow">
       <Helmet>
-        <title>{post.title} | NEON FRAGMENTS</title>
+        <title>{post.title} | 霓虹碎片</title>
         <meta name="description" content={description} />
 
         {/* Open Graph */}
@@ -268,7 +257,9 @@ const PostDetail: React.FC = () => {
         <meta property="og:type" content="article" />
         <meta property="og:url" content={currentUrl} />
         <meta property="og:image" content={ogImage} />
-        <meta property="og:site_name" content="NEON FRAGMENTS" />
+        <meta property="og:site_name" content="霓虹碎片" />
+        <meta property="article:published_time" content={new Date(post.date).toISOString()} />
+        {post.tags.map(tag => <meta key={tag} property="article:tag" content={tag} />)}
 
         {/* Twitter Card */}
         <meta name="twitter:card" content="summary_large_image" />
@@ -284,7 +275,7 @@ const PostDetail: React.FC = () => {
 
          <div className="relative z-10 w-full max-w-4xl mx-auto px-4 md:px-8 pb-4">
            <button onClick={() => navigate('/')} className="flex items-center text-cyber-cyan hover:text-white transition-colors font-mono text-sm mb-2 md:mb-4">
-             <ArrowLeft className="w-4 h-4 mr-2" /> RETURN_TO_GRID
+             <ArrowLeft className="w-4 h-4 mr-2" /> 返回文章列表
            </button>
            <h1 className="text-2xl md:text-5xl font-display font-bold text-white uppercase tracking-tighter drop-shadow-[0_0_10px_rgba(252,238,10,0.5)]">
              <GlitchText text={post.title} />
@@ -309,7 +300,7 @@ const PostDetail: React.FC = () => {
              <span className="flex items-center"><span className="w-2 h-2 bg-cyber-red rounded-full mr-2 animate-pulse"></span> {post.readTime}</span>
           </div>
           <div className="flex items-center space-x-2">
-             <span>AUTHOR:</span>
+             <span>作者：</span>
              <span className="text-white border border-gray-600 px-2 bg-gray-800 uppercase">{post.author.name}</span>
           </div>
         </div>
@@ -326,7 +317,7 @@ const PostDetail: React.FC = () => {
             <div className="mt-8 p-4 border border-cyber-red/50 bg-cyber-red/5 flex items-start space-x-3">
                <AlertOctagon className="w-6 h-6 text-cyber-red flex-shrink-0" />
                <p className="text-cyber-red text-sm font-mono m-0">
-                 WARNING: This content has been flagged by NetWatch. Viewing may void your neural interface warranty.
+                 警告：此内容已被 NetWatch 标记，查看可能导致神经接口保修失效。
                </p>
             </div>
           )}
@@ -337,19 +328,19 @@ const PostDetail: React.FC = () => {
         {/* Action Bar */}
         <div className="flex flex-col md:flex-row items-center justify-between bg-gray-900 p-6 clip-corner border-l-4 border-cyber-cyan">
            <div className="flex items-center space-x-6 mb-4 md:mb-0">
-              <button className="flex items-center space-x-2 text-gray-400 hover:text-cyber-yellow transition-colors group">
-                <ThumbsUp className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                <span className="font-mono font-bold">{post.likes} KUDOS</span>
-              </button>
-              <button className="flex items-center space-x-2 text-gray-400 hover:text-cyber-cyan transition-colors">
+              <span className="flex items-center space-x-2 text-gray-500" title="点赞功能即将上线">
+                <ThumbsUp className="w-5 h-5" />
+                <span className="font-mono font-bold">{post.likes} 次点赞</span>
+              </span>
+              <span className="flex items-center space-x-2 text-gray-500" title="评论功能即将上线">
                 <MessageSquare className="w-5 h-5" />
-                <span className="font-mono font-bold">COMMENT</span>
-              </button>
+                <span className="font-mono text-sm">评论功能建设中</span>
+              </span>
            </div>
 
            <div className="flex items-center space-x-4">
-              <span className="text-gray-500 font-mono text-xs uppercase">Share Node:</span>
-              <CyberButton variant="secondary" className="py-2 px-4" onClick={() => setIsShareModalOpen(true)}>
+              <span className="text-gray-500 font-mono text-xs uppercase">分享文章：</span>
+              <CyberButton variant="secondary" className="py-2 px-4" aria-label="分享文章" onClick={() => setIsShareModalOpen(true)}>
                 <Share2 className="w-4 h-4" />
               </CyberButton>
            </div>
@@ -365,7 +356,7 @@ const PostDetail: React.FC = () => {
                <div className="border border-gray-800 bg-gray-900/50 p-4 hover:border-cyber-cyan transition-all h-full flex flex-col items-start relative overflow-hidden clip-corner">
                  <div className="absolute inset-0 bg-cyber-cyan/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300"></div>
                  <span className="text-xs font-mono text-gray-500 mb-2 group-hover:text-cyber-cyan relative z-10 flex items-center">
-                   <ArrowLeft className="w-3 h-3 mr-1" /> PREVIOUS_DATA
+                   <ArrowLeft className="w-3 h-3 mr-1" /> 上一篇
                  </span>
                  <span className="font-display text-lg text-white group-hover:text-cyber-yellow w-full text-left relative z-10">{olderPost.title}</span>
                </div>
@@ -374,9 +365,9 @@ const PostDetail: React.FC = () => {
              <div className="flex-1 opacity-50 cursor-not-allowed select-none">
                <div className="border border-gray-800 bg-gray-900/20 p-4 h-full flex flex-col items-start relative overflow-hidden clip-corner">
                  <span className="text-xs font-mono text-gray-600 mb-2 relative z-10 flex items-center">
-                   <ArrowLeft className="w-3 h-3 mr-1" /> PREVIOUS_DATA
+                   <ArrowLeft className="w-3 h-3 mr-1" /> 上一篇
                  </span>
-                 <span className="font-display text-lg text-gray-600 w-full text-left relative z-10">END_OF_ARCHIVE</span>
+                 <span className="font-display text-lg text-gray-600 w-full text-left relative z-10">没有更早的文章</span>
                </div>
              </div>
            )}
@@ -386,7 +377,7 @@ const PostDetail: React.FC = () => {
                <div className="border border-gray-800 bg-gray-900/50 p-4 hover:border-cyber-cyan transition-all h-full flex flex-col items-end text-right relative overflow-hidden clip-corner">
                  <div className="absolute inset-0 bg-cyber-cyan/5 translate-x-[100%] group-hover:translate-x-0 transition-transform duration-300"></div>
                  <span className="text-xs font-mono text-gray-500 mb-2 group-hover:text-cyber-cyan relative z-10 flex items-center">
-                   NEXT_DATA <ArrowLeft className="w-3 h-3 ml-1 rotate-180" />
+                   下一篇 <ArrowLeft className="w-3 h-3 ml-1 rotate-180" />
                  </span>
                  <span className="font-display text-lg text-white group-hover:text-cyber-yellow w-full text-right relative z-10">{newerPost.title}</span>
                </div>
@@ -395,9 +386,9 @@ const PostDetail: React.FC = () => {
              <div className="flex-1 opacity-50 cursor-not-allowed select-none">
                <div className="border border-gray-800 bg-gray-900/20 p-4 h-full flex flex-col items-end text-right relative overflow-hidden clip-corner">
                  <span className="text-xs font-mono text-gray-600 mb-2 relative z-10 flex items-center">
-                   NEXT_DATA <ArrowLeft className="w-3 h-3 ml-1 rotate-180" />
+                   下一篇 <ArrowLeft className="w-3 h-3 ml-1 rotate-180" />
                  </span>
-                 <span className="font-display text-lg text-gray-600 w-full text-right relative z-10">NO_FUTURE_DATA</span>
+                 <span className="font-display text-lg text-gray-600 w-full text-right relative z-10">没有更新的文章</span>
                </div>
              </div>
            )}

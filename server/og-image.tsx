@@ -3,36 +3,31 @@ import { Resvg } from '@resvg/resvg-js';
 import { BlogPost } from '../types';
 import React from 'react';
 import QRCode from 'qrcode';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 
-// Simple in-memory cache for fonts
-let fontCache: Record<string, ArrayBuffer> = {};
+const fontCache = new Map<string, Promise<ArrayBuffer>>();
 
-async function loadGoogleFont(font: string, weight: number = 400) {
-  const key = `${font}-${weight}`;
-  if (fontCache[key]) return fontCache[key];
+function loadLocalFont(filename: string): Promise<ArrayBuffer> {
+  const cached = fontCache.get(filename);
+  if (cached) return cached;
 
-  // We fetch the font file directly for simplicity in this environment
-  // In production, you might want to bundle these fonts
-  const url = `https://fonts.googleapis.com/css2?family=${font}:wght@${weight}`;
-  const css = await (await fetch(url)).text();
-  // Extract the font URL from the CSS
-  const resource = css.match(/src: url\((.+)\) format\('(opentype|truetype|woff|woff2)'\)/);
-
-  if (!resource) {
-      // Fallback or error handling
-      console.warn(`Could not load font ${font}`);
-      return null;
-  }
-
-  const res = await fetch(resource[1]);
-  const buffer = await res.arrayBuffer();
-  fontCache[key] = buffer;
-  return buffer;
+  const fontDirectory = import.meta.env.PROD ? 'dist/client/fonts' : 'public/fonts';
+  const promise = fs.readFile(path.resolve(fontDirectory, filename)).then(buffer =>
+    buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer
+  );
+  fontCache.set(filename, promise);
+  promise.catch(() => fontCache.delete(filename));
+  return promise;
 }
 
 export async function generateOgImage(post: BlogPost) {
-  const rajdhaniBold = await loadGoogleFont('Rajdhani', 700);
-  const shareTechMono = await loadGoogleFont('Share Tech Mono', 400);
+  const [rajdhaniBold, shareTechMono, notoSansSC, notoSansSCBold] = await Promise.all([
+    loadLocalFont('rajdhani-700.ttf'),
+    loadLocalFont('share-tech-mono-400.ttf'),
+    loadLocalFont('noto-sans-sc-400.ttf'),
+    loadLocalFont('noto-sans-sc-700.ttf')
+  ]);
 
   // Cyberpunk colors
   const colors = {
@@ -49,7 +44,7 @@ export async function generateOgImage(post: BlogPost) {
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
   const day = String(dateObj.getDate()).padStart(2, '0');
 
-  const postUrl = `https://atlassc.net/${year}/${month}/${day}/${post.slug}`;
+  const postUrl = `https://saibo.me/${year}/${month}/${day}/${post.slug}`;
 
   // Generate QR code manually for Satori
   const qr = QRCode.create(postUrl, { errorCorrectionLevel: 'L' });
@@ -82,7 +77,7 @@ export async function generateOgImage(post: BlogPost) {
         flexDirection: 'column',
         backgroundColor: colors.dark,
         color: colors.white,
-        fontFamily: '"Rajdhani", sans-serif',
+        fontFamily: '"Rajdhani", "Noto Sans SC", sans-serif',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -133,7 +128,7 @@ export async function generateOgImage(post: BlogPost) {
 
         {/* Header */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px', fontFamily: '"Share Tech Mono", monospace', fontSize: '24px', color: '#888' }}>
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px', fontFamily: '"Share Tech Mono", "Noto Sans SC", monospace', fontSize: '24px', color: '#888' }}>
             <div style={{ display: 'flex', marginRight: '10px' }}>
                 <span style={{ color: colors.cyan }}>{year}</span>
                 <span style={{ margin: '0 4px', color: '#666' }}>::</span>
@@ -165,9 +160,9 @@ export async function generateOgImage(post: BlogPost) {
              lineHeight: 1.4,
              maxHeight: '180px',
              overflow: 'hidden',
-             fontFamily: 'sans-serif' // Fallback
+             fontFamily: '"Noto Sans SC", sans-serif'
            }}>
-             {post.description || post.content.replace(/<[^>]*>?/gm, '').substring(0, 150) + '...'}
+             {post.description || post.content.replace(/<[^>]*>?/gm, '').substring(0, 150) + '……'}
            </p>
         </div>
 
@@ -181,7 +176,7 @@ export async function generateOgImage(post: BlogPost) {
                 border: '1px solid #333',
                 padding: '8px 16px',
                 fontSize: '20px',
-                fontFamily: '"Share Tech Mono", monospace',
+                fontFamily: '"Share Tech Mono", "Noto Sans SC", monospace',
                 display: 'flex',
                 alignItems: 'center'
               }}>
@@ -205,13 +200,13 @@ export async function generateOgImage(post: BlogPost) {
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
-              fontFamily: '"Share Tech Mono", monospace',
+              fontFamily: '"Share Tech Mono", "Noto Sans SC", monospace',
               fontSize: '12px',
               color: colors.cyan,
               lineHeight: 1.2
             }}>
-              <span>SCAN_TARGET</span>
-              <span style={{ color: colors.white }}>ACCESS_DATA</span>
+              <span>扫描目标</span>
+              <span style={{ color: colors.white }}>访问数据</span>
             </div>
           </div>
         </div>
@@ -241,19 +236,31 @@ export async function generateOgImage(post: BlogPost) {
       width: 1200,
       height: 675,
       fonts: [
-        rajdhaniBold ? {
+        {
           name: 'Rajdhani',
           data: rajdhaniBold,
           weight: 700,
           style: 'normal',
-        } : undefined,
-        shareTechMono ? {
+        },
+        {
           name: 'Share Tech Mono',
           data: shareTechMono,
           weight: 400,
           style: 'normal',
-        } : undefined,
-      ].filter(Boolean) as any,
+        },
+        {
+          name: 'Noto Sans SC',
+          data: notoSansSC,
+          weight: 400,
+          style: 'normal',
+        },
+        {
+          name: 'Noto Sans SC',
+          data: notoSansSCBold,
+          weight: 700,
+          style: 'normal',
+        },
+      ],
     }
   );
 

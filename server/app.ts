@@ -3,9 +3,10 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { generateOgImage } from './og-image';
 import { BASE_URL } from '../constants';
+import type { BlogPost, PostListResult } from '../types';
 
 const postsPath = path.resolve(process.cwd(), 'services', 'posts.json');
-let posts: any[] = [];
+let posts: BlogPost[] = [];
 
 try {
   const data = fs.readFileSync(postsPath, 'utf-8');
@@ -16,9 +17,10 @@ try {
 }
 
 const app = new Hono();
+const ogImageCache = new Map<string, Awaited<ReturnType<typeof generateOgImage>>>();
 
-const SITE_TITLE = 'Neon Fragments: Cyberpunk Blog';
-const SITE_DESCRIPTION = 'A futuristic, immersive Cyberpunk 2077-inspired blog interface.';
+const SITE_TITLE = '霓虹碎片：赛博朋克博客';
+const SITE_DESCRIPTION = '记录代码、设计、装备与夜之城灵感的沉浸式赛博朋克博客。';
 
 function escapeXml(unsafe: string): string {
   return unsafe.replace(/[<>&'"]/g, (c) => {
@@ -37,7 +39,7 @@ function getPostDescription(post: typeof posts[0]): string {
   if (post.description) return post.description;
   if (post.content) {
     const text = post.content.replace(/<[^>]*>?/gm, '');
-    return text.substring(0, 200) + '...';
+    return text.substring(0, 200) + '……';
   }
   return '';
 }
@@ -73,7 +75,7 @@ app.get('/rss.xml', (c) => {
     <link>${BASE_URL}</link>
     <description>${escapeXml(SITE_DESCRIPTION)}</description>
     <lastBuildDate>${lastBuildDate}</lastBuildDate>
-    <language>en-us</language>
+    <language>zh-CN</language>
     ${items}
   </channel>
 </rss>`;
@@ -110,13 +112,38 @@ app.get('/atom.xml', (c) => {
   <updated>${updated}</updated>
   <id>${BASE_URL}/</id>
   <author>
-    <name>Z. SHINCHVEN</name>
+    <name>文博</name>
   </author>
   ${entries}
 </feed>`;
 
   return c.body(atom, 200, {
     'Content-Type': 'application/xml',
+  });
+});
+
+app.get('/sitemap.xml', (c) => {
+  const staticPages = ['/', '/net', '/data', '/gear'];
+  const latestPostDate = posts[0] ? new Date(posts[0].date).toISOString() : new Date().toISOString();
+  const urls = [
+    ...staticPages.map(page => `
+  <url>
+    <loc>${BASE_URL}${page}</loc>
+    <lastmod>${latestPostDate}</lastmod>
+  </url>`),
+    ...posts.map(post => `
+  <url>
+    <loc>${getPostUrl(post)}</loc>
+    <lastmod>${new Date(post.date).toISOString()}</lastmod>
+  </url>`)
+  ].join('');
+
+  const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}
+</urlset>`;
+  return c.body(sitemap, 200, {
+    'Content-Type': 'application/xml; charset=utf-8',
+    'Cache-Control': 'public, max-age=3600'
   });
 });
 
@@ -128,18 +155,20 @@ app.get('/card/:year/:month/:day/:slug', async (c) => {
   const post = posts.find((p) => p.slug === slug);
 
   if (!post) {
-    return c.text('Post not found', 404);
+    return c.text('文章不存在', 404);
   }
 
   try {
-    const imageBuffer = await generateOgImage(post);
+    const cachedImage = ogImageCache.get(post.slug);
+    const imageBuffer = cachedImage || await generateOgImage(post);
+    if (!cachedImage) ogImageCache.set(post.slug, imageBuffer);
     return c.body(imageBuffer as unknown as ArrayBuffer, 200, {
       'Content-Type': 'image/png',
       'Cache-Control': 'public, max-age=86400', // Cache for 1 day
     });
   } catch (e) {
     console.error(e);
-    return c.text('Failed to generate image', 500);
+    return c.text('分享图片生成失败', 500);
   }
 });
 
@@ -157,47 +186,43 @@ app.get('/api/tags', (c) => {
   return c.json(tags);
 });
 
-app.get('/api/posts', (c) => {
-  const page = Number(c.req.query('page')) || 1;
-  const limit = Number(c.req.query('limit')) || 10;
-  const search = c.req.query('search') || '';
-  const tag = c.req.query('tags') || '';
-  const startIndex = (page - 1) * limit;
-  const endIndex = startIndex + limit;
+export function getPostList(searchParams: URLSearchParams): PostListResult {
+  const page = Math.max(1, Number(searchParams.get('page')) || 1);
+  const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit')) || 10));
+  const search = searchParams.get('search') || '';
+  const tag = searchParams.get('tags') || searchParams.get('tag') || '';
 
   let filteredPosts = posts;
-
   if (tag) {
     filteredPosts = filteredPosts.filter(post => post.tags.includes(tag));
   }
-
   if (search) {
     const lowerSearch = search.toLowerCase();
     filteredPosts = filteredPosts.filter(post =>
       post.title.toLowerCase().includes(lowerSearch) ||
-      post.tags.some(tag => tag.toLowerCase().includes(lowerSearch))
+      post.tags.some(postTag => postTag.toLowerCase().includes(lowerSearch))
     );
   }
 
   const summaries = filteredPosts.map((post) => {
     const { content, ...rest } = post;
-    let description = rest.description;
-    if (!description && content) {
-      const text = content.replace(/<[^>]*>?/gm, '');
-      description = text.substring(0, 200) + '...';
-    }
-    return { ...rest, description };
+    const description = rest.description || content.replace(/<[^>]*>?/gm, '').substring(0, 200) + '……';
+    return { ...rest, content: '', description };
   });
+  const startIndex = (page - 1) * limit;
 
-  const paginatedPosts = summaries.slice(startIndex, endIndex);
-
-  return c.json({
-    posts: paginatedPosts,
+  return {
+    posts: summaries.slice(startIndex, startIndex + limit),
     total: summaries.length,
     page,
     limit,
-    totalPages: Math.ceil(summaries.length / limit)
-  });
+    totalPages: Math.ceil(summaries.length / limit),
+    queryKey: `${page}|${search}|${tag}`
+  };
+}
+
+app.get('/api/posts', (c) => {
+  return c.json(getPostList(new URL(c.req.url).searchParams));
 });
 
 app.get('/api/posts/:slug', (c) => {
@@ -205,7 +230,7 @@ app.get('/api/posts/:slug', (c) => {
   const index = posts.findIndex((p) => p.slug === slug);
 
   if (index === -1) {
-    return c.json({ error: 'Post not found' }, 404);
+    return c.json({ error: '文章不存在' }, 404);
   }
 
   const post = posts[index];

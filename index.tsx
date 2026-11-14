@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import 'highlight.js/styles/atom-one-dark.css';
 import './index.css';
 import App from './App';
-import { BlogPost } from './types';
+import { InitialData } from './types';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -11,10 +11,10 @@ if (!rootElement) {
 }
 
 // @ts-ignore
-const initialPosts = window.__INITIAL_DATA__ as BlogPost[] || [];
+const initialData = window.__INITIAL_DATA__ as InitialData || { posts: [] };
 
 ReactDOM.hydrateRoot(rootElement,
   <React.StrictMode>
-    <App initialPosts={initialPosts} />
+    <App initialData={initialData} />
   </React.StrictMode>
 );

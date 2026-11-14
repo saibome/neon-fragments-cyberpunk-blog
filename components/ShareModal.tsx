@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { X, Copy, Link as LinkIcon, Check, Facebook, Linkedin } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { X, Copy, Link as LinkIcon, Check } from 'lucide-react';
 import CyberButton from './CyberButton';
 
 interface ShareModalProps {
@@ -15,6 +15,18 @@ const SocialIcon: React.FC<{ name: string; className?: string }> = ({ name, clas
       return (
         <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
           <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+        </svg>
+      );
+    case 'linkedin':
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+          <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+        </svg>
+      );
+    case 'facebook':
+      return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
         </svg>
       );
     case 'reddit':
@@ -42,6 +54,46 @@ const SocialIcon: React.FC<{ name: string; className?: string }> = ({ name, clas
 
 const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url }) => {
   const [copied, setCopied] = useState<'link' | 'title' | null>(null);
+  const [copyError, setCopyError] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousFocus = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    closeButtonRef.current?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ));
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last?.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first?.focus();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus();
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -49,10 +101,13 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url }) 
     const text = type === 'link' ? url : `${title} - ${url}`;
     try {
       await navigator.clipboard.writeText(text);
+      setCopyError(false);
       setCopied(type);
       setTimeout(() => setCopied(null), 2000);
     } catch (err) {
-      console.error('Failed to copy:', err);
+      console.error('复制失败：', err);
+      setCopied(null);
+      setCopyError(true);
     }
   };
 
@@ -65,7 +120,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url }) 
     },
     {
       name: 'LinkedIn',
-      icon: <Linkedin className="w-6 h-6" />,
+      icon: <SocialIcon name="linkedin" />,
       url: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
       color: 'hover:text-[#0077b5]'
     },
@@ -77,7 +132,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url }) 
     },
     {
       name: 'Facebook',
-      icon: <Facebook className="w-6 h-6" />,
+      icon: <SocialIcon name="facebook" />,
       url: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
       color: 'hover:text-[#1877f2]'
     },
@@ -104,15 +159,24 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url }) 
       ></div>
 
       {/* Modal Content */}
-      <div className="relative w-full max-w-md bg-cyber-dark border-2 border-cyber-cyan clip-corner p-1 shadow-[0_0_20px_rgba(0,255,255,0.3)] animate-in fade-in zoom-in duration-200">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-dialog-title"
+        className="relative w-full max-w-md bg-cyber-dark border-2 border-cyber-cyan clip-corner p-1 shadow-[0_0_20px_rgba(0,255,255,0.3)] animate-in fade-in zoom-in duration-200"
+      >
         {/* Header */}
         <div className="flex items-center justify-between bg-cyber-cyan/10 p-4 border-b border-cyber-cyan/30">
-          <h3 className="text-xl font-display font-bold text-cyber-cyan tracking-wider">
-            TRANSMIT_DATA
+          <h3 id="share-dialog-title" className="text-xl font-display font-bold text-cyber-cyan tracking-wider">
+            分享数据
           </h3>
           <button
+            ref={closeButtonRef}
             onClick={onClose}
             className="text-cyber-cyan hover:text-white transition-colors"
+            aria-label="关闭分享弹窗"
+            title="关闭"
           >
             <X className="w-6 h-6" />
           </button>
@@ -140,7 +204,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url }) 
           </div>
 
           {/* Copy Actions */}
-          <div className="space-y-3">
+          <div className="space-y-3" aria-live="polite">
+            {copyError && <p className="text-sm text-cyber-red" role="status">复制失败，请手动复制链接。</p>}
             <button
               onClick={() => handleCopy('link')}
               className="w-full flex items-center justify-between p-3 border border-gray-700 bg-gray-900/50 hover:border-cyber-yellow/50 hover:bg-cyber-yellow/5 transition-all group"
@@ -148,11 +213,14 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url }) 
               <div className="flex items-center space-x-3">
                 <LinkIcon className="w-4 h-4 text-gray-400 group-hover:text-cyber-yellow" />
                 <span className="font-mono text-sm text-gray-300 group-hover:text-white">
-                  COPY_LINK_ONLY
+                  仅复制链接
                 </span>
               </div>
               {copied === 'link' ? (
-                <Check className="w-4 h-4 text-cyber-green" />
+                <span className="flex items-center space-x-1 text-sm font-mono text-cyber-green">
+                  <Check className="w-4 h-4" />
+                  <span>已复制</span>
+                </span>
               ) : (
                 <Copy className="w-4 h-4 text-gray-500 group-hover:text-cyber-yellow" />
               )}
@@ -168,11 +236,14 @@ const ShareModal: React.FC<ShareModalProps> = ({ isOpen, onClose, title, url }) 
                   <span className="absolute -top-1 -right-1 w-2 h-2 bg-cyber-yellow rounded-full opacity-50"></span>
                 </div>
                 <span className="font-mono text-sm text-gray-300 group-hover:text-white">
-                  COPY_WITH_TITLE
+                  复制标题和链接
                 </span>
               </div>
               {copied === 'title' ? (
-                <Check className="w-4 h-4 text-cyber-green" />
+                <span className="flex items-center space-x-1 text-sm font-mono text-cyber-green">
+                  <Check className="w-4 h-4" />
+                  <span>已复制</span>
+                </span>
               ) : (
                 <Copy className="w-4 h-4 text-gray-500 group-hover:text-cyber-yellow" />
               )}

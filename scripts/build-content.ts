@@ -52,6 +52,7 @@ async function buildContent() {
 
   const files = await fg(`${CONTENT_DIR}/**/*.md`);
   const posts: BlogPost[] = [];
+  const slugs = new Set<string>();
 
   for (const file of files) {
     const raw = await fs.readFile(file, 'utf-8');
@@ -59,11 +60,26 @@ async function buildContent() {
 
     // Generate slug from filename if not provided
     const filename = path.basename(file, '.md');
-    const slug = data.slug || filename;
+    const slug = String(data.slug || filename).trim();
+    if (!slug || !/^[a-zA-Z0-9][a-zA-Z0-9-_]*$/.test(slug)) {
+      throw new Error(`${file} 的 slug 无效，只能包含字母、数字、连字符和下划线。`);
+    }
+    if (slugs.has(slug)) {
+      throw new Error(`发现重复 slug：${slug}（${file}）`);
+    }
+    slugs.add(slug);
+    if (data.title !== undefined && (typeof data.title !== 'string' || !data.title.trim())) {
+      throw new Error(`${file} 的 title 必须是非空字符串。`);
+    }
+    const date = data.date ? new Date(data.date) : new Date();
+    if (Number.isNaN(date.getTime())) {
+      throw new Error(`${file} 的 date 不是有效日期。`);
+    }
 
-    // Calculate read time (rough estimate)
-    const wordCount = content.split(/\s+/).length;
-    const readTime = Math.ceil(wordCount / 200) + ' min';
+    // 中文按字符、英文按单词估算阅读时长
+    const chineseCharacters = content.match(/[\u3400-\u9fff]/g)?.length || 0;
+    const englishWords = content.replace(/[\u3400-\u9fff]/g, ' ').match(/[a-zA-Z0-9]+/g)?.length || 0;
+    const readTime = `约 ${Math.max(1, Math.ceil(chineseCharacters / 400 + englishWords / 200))} 分钟`;
 
     const htmlContent = await marked(content);
 
@@ -77,13 +93,13 @@ async function buildContent() {
     }
 
     posts.push({
-      id: data.id || crypto.randomUUID(),
-      title: data.title || 'Untitled',
+      id: data.id || slug,
+      title: data.title || '未命名文章',
       slug: slug,
       content: htmlContent,
       description: data.description,
       image: data.image,
-      date: data.date ? new Date(data.date).toISOString() : new Date().toISOString(),
+      date: date.toISOString(),
       author: author,
       tags: data.tags || [],
       readTime: data.readTime || readTime,
@@ -99,4 +115,7 @@ async function buildContent() {
   console.log(`Generated ${posts.length} posts to ${OUTPUT_FILE}`);
 }
 
-buildContent().catch(console.error);
+buildContent().catch(error => {
+  console.error(error);
+  process.exitCode = 1;
+});

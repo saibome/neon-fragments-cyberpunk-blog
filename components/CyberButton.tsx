@@ -1,11 +1,7 @@
 import React from 'react';
 
-interface CyberButtonProps {
-  children: React.ReactNode;
-  onClick?: () => void;
+interface CyberButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: 'primary' | 'secondary' | 'danger';
-  className?: string;
-  disabled?: boolean;
   loading?: boolean;
 }
 
@@ -15,7 +11,8 @@ const CyberButton: React.FC<CyberButtonProps> = ({
   variant = 'primary', 
   className = '',
   disabled = false,
-  loading = false
+  loading = false,
+  ...buttonProps
 }) => {
   const baseStyles = "relative px-6 py-3 font-bold font-mono uppercase tracking-widest text-sm transition-all duration-200 clip-corner focus:outline-none";
   
@@ -27,6 +24,7 @@ const CyberButton: React.FC<CyberButtonProps> = ({
 
   return (
     <button 
+      {...buttonProps}
       onClick={onClick} 
       disabled={disabled || loading}
       className={`${baseStyles} ${variants[variant]} ${disabled ? 'opacity-50 cursor-not-allowed' : 'glitch-hover'} ${className}`}
@@ -35,7 +33,7 @@ const CyberButton: React.FC<CyberButtonProps> = ({
       <span className="absolute top-0 right-0 w-2 h-2 bg-current opacity-50"></span>
       <span className="absolute bottom-0 left-0 w-2 h-2 bg-current opacity-50"></span>
       
-      {loading ? "PROCESSING..." : children}
+      {loading ? "处理中…" : children}
     </button>
   );
 };

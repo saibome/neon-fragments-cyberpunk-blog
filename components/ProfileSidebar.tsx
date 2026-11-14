@@ -61,7 +61,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, activeItem, onNav
       <div className="relative z-10">
         <div className="flex items-center space-x-4 mb-6">
           <div className="w-16 h-16 bg-cyber-yellow clip-both flex items-center justify-center overflow-hidden border-2 border-white">
-             <img src="https://picsum.photos/200/200" alt="Avatar" className="w-full h-full object-cover mix-blend-multiply grayscale contrast-125" />
+             <img src="https://picsum.photos/200/200" alt="头像" className="w-full h-full object-cover mix-blend-multiply grayscale contrast-125" />
           </div>
           <div>
             <h2 className="text-2xl font-display font-bold text-white leading-none">{user.name}</h2>
@@ -73,7 +73,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, activeItem, onNav
               <div className="block text-cyber-yellow font-mono text-sm">{user.handle}</div>
             )}
             <div className="flex space-x-2 mt-1">
-              <span className="inline-block bg-cyber-red text-black text-[10px] px-1 font-bold">LVL {user.level}</span>
+              <span className="inline-block bg-cyber-red text-black text-[10px] px-1 font-bold">等级 {user.level}</span>
               <span className="inline-block border border-cyber-cyan text-cyber-cyan text-[10px] px-1 font-bold uppercase">{user.role}</span>
             </div>
           </div>
@@ -105,7 +105,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, activeItem, onNav
           </div>
 
           <div className="flex justify-between items-center">
-            <span className="flex items-center text-gray-400 w-20"><Wifi className="w-3 h-3 mr-2" /> UPLINK</span>
+            <span className="flex items-center text-gray-400 w-20"><Wifi className="w-3 h-3 mr-2" /> 上行链路</span>
              <div className="w-32 h-2 bg-gray-800 rounded-none overflow-hidden">
               <div className="h-full bg-cyber-cyan" style={{ width: `${user.stats.network}%` }}></div>
             </div>
@@ -114,7 +114,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, activeItem, onNav
         </div>
 
         <div className="mt-8 border-t border-cyber-gray pt-4 hidden md:block">
-          <h3 className="text-cyber-cyan font-bold mb-2 text-sm uppercase tracking-widest">NEURAL ACTIVITY</h3>
+          <h3 className="text-cyber-cyan font-bold mb-2 text-sm uppercase tracking-widest">神经活动</h3>
           <svg ref={d3Container} width="200" height="60" className="w-full overflow-visible"></svg>
         </div>
       </div>
@@ -123,7 +123,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, activeItem, onNav
 
       {/* Mobile Navigation */}
       <div className="md:hidden mt-6 border-t border-cyber-gray/50 pt-4 relative z-10 -mx-6">
-        <h3 className="text-cyber-cyan font-bold mb-4 text-sm uppercase tracking-widest px-6">NAVIGATION</h3>
+        <h3 className="text-cyber-cyan font-bold mb-4 text-sm uppercase tracking-widest px-6">导航</h3>
         <div className="flex flex-col">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;

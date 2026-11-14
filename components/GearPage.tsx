@@ -5,8 +5,8 @@ import { useProfile } from '../contexts/ProfileContext';
 const techStack = [
   {
     name: 'React',
-    type: 'UI LIBRARY',
-    description: 'Component-based UI rendering engine. Version 18.x detected.',
+    type: '界面库',
+    description: '基于组件的界面渲染引擎，检测到 18.x 版本。',
     stats: { performance: 95, stability: 98, complexity: 85 },
     color: 'text-cyan-400',
     borderColor: 'border-cyan-400',
@@ -15,8 +15,8 @@ const techStack = [
   },
   {
     name: 'Vite',
-    type: 'BUILD TOOL',
-    description: 'Next-generation frontend tooling. HMR enabled. Lightning fast.',
+    type: '构建工具',
+    description: '新一代前端工具链，支持 HMR，速度极快。',
     stats: { speed: 99, efficiency: 95, bundleSize: 90 },
     color: 'text-purple-400',
     borderColor: 'border-purple-400',
@@ -25,8 +25,8 @@ const techStack = [
   },
   {
     name: 'Hono',
-    type: 'EDGE FRAMEWORK',
-    description: 'Ultrafast web framework for the Edges. Lightweight and standards-based.',
+    type: '边缘框架',
+    description: '面向边缘环境的超高速 Web 框架，轻量且遵循 Web 标准。',
     stats: { latency: 10, throughput: 98, footprint: 5 },
     color: 'text-orange-400',
     borderColor: 'border-orange-400',
@@ -35,8 +35,8 @@ const techStack = [
   },
   {
     name: 'React Router',
-    type: 'NAVIGATION',
-    description: 'Declarative routing for React. Client-side navigation system.',
+    type: '导航',
+    description: 'React 的声明式路由与客户端导航系统。',
     stats: { flexibility: 90, integration: 95, ux: 92 },
     color: 'text-red-500',
     borderColor: 'border-red-500',
@@ -45,8 +45,8 @@ const techStack = [
   },
   {
     name: 'Tailwind CSS',
-    type: 'STYLING',
-    description: 'Utility-first CSS framework. Rapid UI development protocol.',
+    type: '样式',
+    description: '工具类优先的 CSS 框架，让界面开发更高效。',
     stats: { customization: 98, size: 95, maintenance: 90 },
     color: 'text-sky-400',
     borderColor: 'border-sky-400',
@@ -55,8 +55,8 @@ const techStack = [
   },
   {
     name: 'Gemini',
-    type: 'AI CORE',
-    description: 'Google\'s multimodal AI model. Advanced cognitive processing unit.',
+    type: 'AI 核心',
+    description: 'Google 的多模态 AI 模型，具备高级认知处理能力。',
     stats: { intelligence: 99, reasoning: 97, creativity: 95 },
     color: 'text-blue-400',
     borderColor: 'border-blue-400',
@@ -64,6 +64,27 @@ const techStack = [
     shadowColor: 'shadow-blue-400/50'
   }
 ];
+
+const statLabels: Record<string, string> = {
+  performance: '性能',
+  stability: '稳定性',
+  complexity: '复杂度',
+  speed: '速度',
+  efficiency: '效率',
+  bundleSize: '打包体积',
+  latency: '延迟',
+  throughput: '吞吐量',
+  footprint: '资源占用',
+  flexibility: '灵活性',
+  integration: '集成度',
+  ux: '用户体验',
+  customization: '可定制性',
+  size: '体积',
+  maintenance: '可维护性',
+  intelligence: '智能水平',
+  reasoning: '推理能力',
+  creativity: '创造力'
+};
 
 const GlitchCard: React.FC<{ tech: typeof techStack[0] }> = ({ tech }) => {
   const [isHovered, setIsHovered] = useState(false);
@@ -111,7 +132,7 @@ const GlitchCard: React.FC<{ tech: typeof techStack[0] }> = ({ tech }) => {
           {Object.entries(tech.stats).map(([key, value]) => (
             <div key={key} className="group/stat">
               <div className="flex justify-between text-[10px] font-mono uppercase text-gray-500 mb-1 tracking-wider">
-                <span>{key}</span>
+                <span>{statLabels[key]}</span>
                 <span className={`${tech.color}`}>{value}%</span>
               </div>
               <div className="h-2 bg-gray-900 w-full relative overflow-hidden border border-gray-800">
@@ -130,7 +151,7 @@ const GlitchCard: React.FC<{ tech: typeof techStack[0] }> = ({ tech }) => {
 
         {/* Decorative "Decoded" Text at bottom */}
         <div className="absolute bottom-2 right-2 text-[8px] font-mono text-gray-600 opacity-50">
-          ID: {Math.random().toString(36).substring(7).toUpperCase()}
+          编号：{Array.from(tech.name).reduce((hash, char) => ((hash << 5) - hash + char.charCodeAt(0)) >>> 0, 0).toString(36).substring(0, 6).toUpperCase().padStart(6, '0')}
         </div>
       </div>
     </div>
@@ -155,11 +176,11 @@ const GearPage: React.FC = () => {
       <div className="max-w-7xl w-full mx-auto relative z-10">
         <div className="text-center mb-8 w-full max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-display font-bold text-white mb-2 tracking-tighter">
-            <GlitchText text="GEAR SET" />
+            <GlitchText text="技术装备" />
           </h1>
           <div className="h-1 w-24 bg-cyber-yellow mx-auto mb-4"></div>
           <p className="text-cyber-cyan font-mono text-sm md:text-base tracking-widest">
-            SYSTEM INTEGRITY // 100%
+            系统完整性 // 100%
           </p>
         </div>
 

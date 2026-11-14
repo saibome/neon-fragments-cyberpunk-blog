@@ -79,7 +79,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeItem, onNavigate, onToggleProfile
             <button
               className="md:hidden mr-4 text-cyber-yellow hover:text-cyber-cyan transition-colors z-50 relative"
               onClick={onToggleProfile}
-              aria-label="Toggle Profile"
+              aria-label="切换个人资料"
             >
               <CyberMenuIcon className="w-8 h-8" isOpen={isProfileOpen} />
             </button>
@@ -87,7 +87,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeItem, onNavigate, onToggleProfile
             <Link to="/" className="flex-shrink-0 cursor-pointer">
               <h1 className="text-3xl font-display font-bold italic tracking-tighter text-cyber-yellow">
                 <span className="text-cyber-cyan mr-1">NC</span>
-                ATLASSC<span className="text-white">.</span>NET
+                SAIBO<span className="text-white">.</span>ME
               </h1>
             </Link>
           </div>
@@ -116,7 +116,7 @@ const Navbar: React.FC<NavbarProps> = ({ activeItem, onNavigate, onToggleProfile
 
           <div className="flex items-center">
              <div className="h-2 w-2 bg-green-500 rounded-full animate-ping mr-2"></div>
-             <span className="text-xs font-mono text-green-500">ONLINE</span>
+             <span className="text-xs font-mono text-green-500">在线</span>
           </div>
         </div>
       </div>

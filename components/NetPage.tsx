@@ -38,11 +38,11 @@ const NetPage: React.FC = () => {
     <div className="min-h-[calc(100vh-100px)] p-4 md:p-8 flex flex-col items-center">
       <div className="text-center mb-8 w-full max-w-4xl">
         <h1 className="text-4xl md:text-6xl font-display font-bold text-white mb-2 tracking-tighter">
-          <GlitchText text="THE NET" />
+          <GlitchText text="网络" />
         </h1>
         <div className="h-1 w-24 bg-cyber-yellow mx-auto mb-4"></div>
         <p className="text-cyber-cyan font-mono text-sm md:text-base tracking-widest">
-          GLOBAL DATA AGGREGATION // TAG MATRIX
+          全局数据聚合 // 标签矩阵
         </p>
       </div>
 
@@ -53,7 +53,7 @@ const NetPage: React.FC = () => {
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 space-y-4">
             <div className="w-16 h-16 border-4 border-cyber-yellow border-t-transparent rounded-full animate-spin"></div>
-            <div className="text-cyber-yellow font-mono animate-pulse">ESTABLISHING CONNECTION...</div>
+            <div className="text-cyber-yellow font-mono animate-pulse">正在建立连接……</div>
           </div>
         ) : (
           <CyberTagGrid tags={tags} />

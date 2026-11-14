@@ -15,15 +15,21 @@ const CyberDate: React.FC<CyberDateProps> = ({ date, className = '' }) => {
   const year = dateObj.getFullYear();
   const month = String(dateObj.getMonth() + 1).padStart(2, '0');
   const day = String(dateObj.getDate()).padStart(2, '0');
+  const formattedDate = `${year}年${month}月${day}日`;
 
   return (
-    <div className={`inline-flex items-center font-mono tracking-wider ${className}`} aria-label={`Date: ${date}`}>
+    <time
+      className={`inline-flex items-center font-mono tracking-wider ${className}`}
+      dateTime={dateObj.toISOString()}
+      aria-label={`日期：${formattedDate}`}
+    >
       <span className="text-cyber-cyan">{year}</span>
-      <span className="mx-1 text-gray-600">::</span>
+      <span className="text-gray-600">年</span>
       <span className="text-cyber-yellow">{month}</span>
-      <span className="mx-1 text-gray-600">::</span>
+      <span className="text-gray-600">月</span>
       <span className="text-white">{day}</span>
-    </div>
+      <span className="text-gray-600">日</span>
+    </time>
   );
 };
 

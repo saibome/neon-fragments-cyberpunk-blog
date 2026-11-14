@@ -4,18 +4,15 @@ import { HelmetProvider } from 'react-helmet-async';
 import { AppRoutes } from './AppRoutes';
 import { DataProvider } from './contexts/DataContext';
 import { ProfileProvider } from './contexts/ProfileContext';
-import { BlogPost } from './types';
-
-
-
+import { InitialData } from './types';
 
 interface AppProps {
-  initialPosts?: BlogPost[];
+  initialData?: InitialData;
 }
 
-function App({ initialPosts = [] }: AppProps) {
+function App({ initialData = { posts: [] } }: AppProps) {
   return (
-    <DataProvider initialPosts={initialPosts}>
+    <DataProvider initialData={initialData}>
       <ProfileProvider>
         <HelmetProvider>
           <BrowserRouter>

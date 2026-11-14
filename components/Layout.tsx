@@ -1,14 +1,37 @@
-import React, { useState } from 'react';
+import React, { Suspense, useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
+import { Helmet } from 'react-helmet-async';
 import Navbar from './Navbar';
 import ProfileSidebar from './ProfileSidebar';
 import { NAV_ITEMS } from '../constants';
 import { NavItem } from '../types';
 import { useProfile } from '../contexts/ProfileContext';
+import { useData } from '../contexts/DataContext';
+import { BASE_URL } from '../constants';
+
+const PAGE_META: Record<string, { title: string; description: string }> = {
+  '/': {
+    title: '霓虹碎片 | NEON FRAGMENTS',
+    description: '记录代码、设计、装备与夜之城灵感的赛博朋克博客。'
+  },
+  '/net': {
+    title: '网络 | 霓虹碎片',
+    description: '浏览霓虹碎片的全部文章标签，按主题检索代码、设计与城市观察。'
+  },
+  '/data': {
+    title: '数据档案 | 霓虹碎片',
+    description: '霓虹碎片的数据档案区域，正在整理更多内容与索引。'
+  },
+  '/gear': {
+    title: '技术装备 | 霓虹碎片',
+    description: '霓虹碎片博客使用的技术栈、构建工具与界面组件。'
+  }
+};
 
 const Layout: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [stats, setStats] = useState({ postCount: 0, tagCount: 0 });
+  const { initialList } = useData();
+  const [stats, setStats] = useState({ postCount: initialList?.total || 0, tagCount: 0 });
   const { user } = useProfile();
   const location = useLocation();
   const navigate = useNavigate();
@@ -17,15 +40,15 @@ const Layout: React.FC = () => {
     const fetchStats = async () => {
       try {
         const [postsRes, tagsRes] = await Promise.all([
-          fetch('/api/posts?limit=1'),
+          initialList ? Promise.resolve(null) : fetch('/api/posts?limit=1'),
           fetch('/api/tags')
         ]);
 
-        if (postsRes.ok && tagsRes.ok) {
-          const postsData = await postsRes.json();
+        if (tagsRes.ok) {
+          const postsData = postsRes?.ok ? await postsRes.json() : null;
           const tagsData = await tagsRes.json();
           setStats({
-            postCount: postsData.total,
+            postCount: initialList?.total ?? postsData?.total ?? 0,
             tagCount: tagsData.length
           });
         }
@@ -34,10 +57,12 @@ const Layout: React.FC = () => {
       }
     };
     fetchStats();
-  }, []);
+  }, [initialList]);
 
   // Determine active nav item based on path
   const activeNav = NAV_ITEMS.find(item => item.path === location.pathname)?.id || NavItem.HOME;
+  const meta = PAGE_META[location.pathname] || PAGE_META['/'];
+  const canonicalUrl = `${BASE_URL}${location.pathname}`;
 
   const handleNav = (item: NavItem) => {
     const navItem = NAV_ITEMS.find(n => n.id === item);
@@ -58,22 +83,22 @@ const Layout: React.FC = () => {
       {/* Decorative Sidebar Elements */}
       <div className="mt-6 hidden lg:block">
         <div className="border border-gray-800 p-4 bg-black/40">
-          <h4 className="text-cyber-red font-mono text-xs font-bold mb-2">SYSTEM STATUS</h4>
+          <h4 className="text-cyber-red font-mono text-xs font-bold mb-2">系统状态</h4>
           <div className="space-y-2">
             <div className="flex justify-between text-[10px] font-mono text-gray-500">
-              <span>FIREWALL</span>
-              <span className="text-green-500">ACTIVE</span>
+              <span>防火墙</span>
+              <span className="text-green-500">已启用</span>
             </div>
             <div className="flex justify-between text-[10px] font-mono text-gray-500">
-              <span>TRACE_ROUTE</span>
-              <span className="text-red-500">BLOCKED</span>
+              <span>路由追踪</span>
+              <span className="text-red-500">已阻断</span>
             </div>
             <div className="flex justify-between text-[10px] font-mono text-gray-500">
-              <span>DATA_FRAGMENTS</span>
+              <span>数据碎片</span>
               <span className="text-cyber-cyan">{stats.postCount}</span>
             </div>
             <div className="flex justify-between text-[10px] font-mono text-gray-500">
-              <span>INDEX_NODES</span>
+              <span>索引节点</span>
               <span className="text-cyber-yellow">{stats.tagCount}</span>
             </div>
             <div className="w-full bg-gray-900 h-1 mt-2">
@@ -86,7 +111,20 @@ const Layout: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen flex flex-col font-sans text-gray-100 selection:bg-cyber-yellow selection:text-black">
+    <>
+      <Helmet>
+        <title>{meta.title}</title>
+        <meta name="description" content={meta.description} />
+        <link rel="canonical" href={canonicalUrl} />
+        <link rel="alternate" type="application/rss+xml" title="霓虹碎片 RSS" href={`${BASE_URL}/rss.xml`} />
+        <meta property="og:title" content={meta.title} />
+        <meta property="og:description" content={meta.description} />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content={canonicalUrl} />
+        <meta property="og:site_name" content="霓虹碎片" />
+        <meta property="og:locale" content="zh_CN" />
+      </Helmet>
+      <div className="min-h-screen flex flex-col font-sans text-gray-100 selection:bg-cyber-yellow selection:text-black">
       <Navbar
         activeItem={activeNav}
         onNavigate={handleNav}
@@ -125,7 +163,9 @@ const Layout: React.FC = () => {
 
           {/* Main Content Area */}
           <section className="flex-grow min-w-0">
-             <Outlet />
+            <Suspense fallback={<div className="py-20 text-center text-cyber-yellow font-mono" role="status">正在接入数据流……</div>}>
+              <Outlet />
+            </Suspense>
           </section>
 
         </div>
@@ -135,14 +175,23 @@ const Layout: React.FC = () => {
       <footer className="border-t border-gray-800 bg-black py-8 mt-12">
         <div className="max-w-7xl mx-auto px-4 text-center">
            <p className="text-gray-600 font-mono text-xs">
-             © 2077 NEON FRAGMENTS // NO RIGHTS RESERVED // POWERED BY GEMINI
+             © 2077 SAIBO.ME // 保留所有权利 
            </p>
            <div className="mt-2 text-[10px] text-gray-700 uppercase tracking-[0.2em]">
-             Netwatch Protocol v.2.55 // Secure Connection
+            <a
+              href="https://beian.miit.gov.cn/"
+              target="_blank"
+              rel="nofollow noopener noreferrer"
+              className="hover:text-gray-500 transition-colors"
+            >
+              粤ICP备2026121562号-2
+            </a>
+            {' '}// 安全连接
            </div>
         </div>
       </footer>
-    </div>
+      </div>
+    </>
   );
 };
 

@@ -1,0 +1,6 @@
+allowBuilds:
+  esbuild: true
+
+peerDependencyRules:
+  allowedVersions:
+    react-helmet-async>react: "19"
