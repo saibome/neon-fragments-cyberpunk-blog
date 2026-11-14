@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -11,12 +12,13 @@ const load = (relative: string) =>
 
 const config = JSON.parse(read('edgeone.json'));
 
-test('edgeone.json 声明静态产物与 pnpm 安装命令，且不写 nodeVersion', () => {
+test('edgeone.json 声明静态产物、pnpm 安装命令与预装 Node 版本', () => {
   assert.equal(config.outputDirectory, 'dist');
   assert.match(config.buildCommand, /pnpm build/);
   assert.match(config.installCommand, /pnpm@12\.18\.0/);
   assert.match(config.installCommand, /--frozen-lockfile/);
-  assert.equal('nodeVersion' in config, false, 'Node 26 由 .nvmrc 提供，写 nodeVersion 会导致部署失败');
+  assert.equal(config.nodeVersion, '24.5.0', 'Astro 7 要求 >=22.23.4，22.x 预装版本过低');
+  assert.ok(['24.5.0', '24.11.0', '24.18.0'].includes(config.nodeVersion), '必须是平台预装版本');
   assert.ok(config.rewrites.length <= 100);
   assert.ok(config.headers.length <= 30);
 });
@@ -29,8 +31,21 @@ test('clean URL 兜底规则指向已生成的平铺页面', () => {
   }
 });
 
-test('.nvmrc 指向 Node 26', () => {
-  assert.ok(read('.nvmrc').trim().startsWith('26'));
+test('根目录不提交 .nvmrc，本地 Node 26 只作为模板提供', () => {
+  assert.ok(read('.nvmrc.example').trim().startsWith('26'));
+  const tracked = execFileSync('git', ['ls-files', '--', '.nvmrc'], {
+    cwd: root,
+    encoding: 'utf8'
+  }).trim();
+  assert.equal(tracked, '', '提交 .nvmrc 会让 EdgeOne 切换非预装版本并直接构建失败');
+});
+
+test('package.json 的 engines 允许 EdgeOne 的 Node 24.5.0', () => {
+  const pkg = JSON.parse(read('package.json'));
+  const engineNode: string = pkg.engines?.node ?? '';
+  assert.match(engineNode, /^>=/);
+  assert.doesNotMatch(engineNode, /\b2[5-9]\b/, 'engines 不能要求 Node 25+');
+  assert.match(engineNode, /22\.23\.4/, 'Astro 7 的最低 Node 要求');
 });
 
 test('所有 Cloud Function 入口都导出 onRequest 与 default', async () => {

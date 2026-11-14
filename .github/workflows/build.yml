@@ -44,7 +44,7 @@ jobs:
     - name: Prepare Release Artifact
       run: |
         mkdir -p release/scripts release/services
-        cp package.json pnpm-lock.yaml pnpm-workspace.yaml Dockerfile .nvmrc edgeone.json release/
+        cp package.json pnpm-lock.yaml pnpm-workspace.yaml Dockerfile edgeone.json release/
         cp scripts/serve.mjs release/scripts/serve.mjs
         cp -r dist release/
         cp services/posts.json release/services/posts.json

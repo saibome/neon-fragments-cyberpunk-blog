@@ -6,13 +6,18 @@
 
 | 项目 | 版本 | 约定位置 |
 | :--- | :--- | :--- |
-| Node.js | 26 | `.nvmrc`、`package.json#engines`、`Dockerfile`、CI |
+| Node.js（本地 / CI / Docker） | 26 | `.nvmrc.example`、CI `setup-node`、Dockerfile |
+| Node.js（EdgeOne Pages 云端构建） | 24.5.0 | `edgeone.json#nodeVersion`（平台预装版本） |
+| Node.js 最低要求 | 22.23.4 | Astro 7.4.x 的 `engines`、`package.json#engines` |
 | pnpm | 12.18.0 | `package.json#packageManager`、`pnpm-lock.yaml` |
 | Astro | 7.4.x | `astro.config.mjs` |
+
+本地开发与交付链路统一用 Node 26；EdgeOne Pages 只提供预装 Node（官方清单含 `24.5.0`），且 Astro 7 要求 `>=22.23.4`（22.x 预装版本都过低），所以云端构建锁定 `24.5.0`。**仓库根目录不提交 `.nvmrc`**：EdgeOne 会优先按它切换版本，写 26 会在安装依赖前直接报 `Failed to switch to Node.js 26`。本地需要固定版本时执行 `cp .nvmrc.example .nvmrc && nvm use`，该本地文件已被 `.gitignore` 忽略。
 
 仓库只使用 pnpm，请不要用 `npm ci` / `yarn install`。
 
 ```bash
+nvm install 26 && nvm use 26   # 或 cp .nvmrc.example .nvmrc && nvm use
 pnpm install
 cp .env.example .env.local   # 可选：设置 SITE_URL
 pnpm dev                     # http://localhost:3000，启动前自动编译内容
@@ -114,7 +119,7 @@ node scripts/serve.mjs
 控制台（国内站 `https://console.cloud.tencent.com/edgeone/pages`）：
 
 1. 开通 Pages → 绑定 GitHub → 授权 EO Pages → 选择 `saibome/neon-fragments-cyberpunk-blog`，部署分支 `main`。
-2. 在项目设置里添加环境变量 `SITE_URL=https://your.domain`（构建期固化到 canonical / feed / 分享图），保存并开始部署；之后 push `main` 自动重部署。
+2. 在「项目设置 → Node.js 版本」选 `24.5.0`（若之前手动选过 26 务必改掉；`edgeone.json#nodeVersion` 会覆盖同名设置）。再添加环境变量 `SITE_URL=https://your.domain`（构建期固化到 canonical / feed / 分享图）。保存后**需要 push `main` 或点「重新部署」才会生效**；之后 push `main` 自动重部署。
 3. 选「全球（含中国大陆）」加速区并绑定自定义域名需要 ICP 备案；仅面向海外可选「全球（不含中国大陆）」。
 
 `edgeone.json` 覆盖的配置（优先级高于控制台里的同名设置）：
@@ -125,7 +130,7 @@ node scripts/serve.mjs
 | 安装命令 | `npm i -g pnpm@12.18.0 && pnpm install --frozen-lockfile` | 平台预装 pnpm 仅到 9，必须显式安装 12 |
 | 构建命令 | `pnpm build` | `pnpm build:edgeone` 是「构建 + 自检」别名 |
 | 输出目录 | `dist` | Astro 静态产物 |
-| Node.js 版本 | `.nvmrc` → `26` | **故意不写 `nodeVersion`**：官方只支持预装版本（最高 24.5.0），写 26 会导致部署失败；`.nvmrc` 触发平台自动下载 26，但该版本不带包管理器，所以安装命令里显式装 pnpm |
+| Node.js 版本 | `nodeVersion: 24.5.0` | 平台只支持预装版本（14.21.3 / 16.20.2 / 18.20.4 / 20.18.0 / 22.x / 24.5.0 等）；Astro 7 要求 ≥22.23.4，22.x 预装版本都过低。根目录**不提交 `.nvmrc`**，否则平台会尝试切换到 26 并在安装依赖前失败；本地 / CI / Docker 仍用 26 |
 | 缓存 / 安全头 | `/_astro/*`、`/fonts/*` 长缓存；全局 nosniff、Referrer-Policy | HTML 不设长缓存，避免更新后读到旧页 |
 | clean URL 兜底 | `/net`、`/data`、`/gear` → 同名 `.html` | 兼容平台不自动展开目录索引的情况 |
 | 函数时长 | `cloudFunctions.nodejs.maxDuration: 10` | 函数只做 JSON 查询 |
@@ -136,10 +141,14 @@ node scripts/serve.mjs
 
 ```bash
 pnpm build:edgeone   # 构建并执行 scripts/check-edgeone.mjs
-pnpm check:edgeone   # 只自检：产物完整性、data.js 与文章同步、函数入口、配置约束
+pnpm check:edgeone   # 只自检：产物完整性、data.js 与文章同步、函数入口、云端 Node 版本配置
 ```
 
+`check:edgeone` 会卡住三类易复发的云端问题：`edgeone.json` 的 `nodeVersion` 不是预装版本、`package.json#engines` 挡住 24.5.0、根目录误提交 `.nvmrc`。
+
 CI 也会在每次 push 后执行 `pnpm check:edgeone`。改动 `_posts/` 后请本地跑一次 `pnpm build` 并提交更新后的 `cloud-functions/data.js`。
+
+> 重新部署后若日志仍出现 `Failed to switch to Node.js 26`：确认推送后的仓库根目录已无 `.nvmrc`，把「项目设置 → Node.js 版本」确认为 `24.5.0`，并关闭「使用构建缓存」做一次无缓存部署（旧缓存可能残留上一版的 `.nvmrc`）。配置改动只在下一次部署生效，保存设置本身不会触发构建。
 
 首次部署后建议逐项核验：首页 `/`、文章页 `/YYYY/MM/DD/slug`、静态页 `/net`、`/api/posts?limit=1`（JSON）、`/api/tags`、`/rss.xml`、`/card/YYYY/MM/DD/slug.png`（PNG）、错误日期 `/2099/01/01/<slug>`（301 到规范链接）、未知页（404）。若文章页 404，检查平台是否自动展开 `目录/index.html`（仓库同时提供了 `/YYYY/MM/DD/slug.html` 平铺副本），必要时在 `edgeone.json` 的 `rewrites` 中补对应规则；若 `/api/*` 返回 HTML 404，说明函数目录未被识别，请查看构建日志中的 Cloud Functions 编译结果。
 

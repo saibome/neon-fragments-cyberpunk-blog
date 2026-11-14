@@ -5,6 +5,7 @@
  * Cloud Functions 的 data.js 与文章数据同步、函数入口可被平台识别。
  * 任何一项失败都以非零退出码结束，便于 CI 卡住有问题的构建。
  */
+import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
@@ -14,12 +15,32 @@ const DIST = path.join(ROOT, 'dist');
 const problems = [];
 const notes = [];
 
+// EdgeOne Pages 只提供预装 Node；.nvmrc 里的非预装版本会在安装依赖前
+// 直接报 "Failed to switch to Node.js x"。Astro 7 要求 >=22.23.4，
+// 22.x 预装版本都过低，因此云端锁定 24.5.0。
+const PREINSTALLED_NODE_VERSIONS = [
+  '14.21.3', '16.20.2', '18.20.4', '20.18.0',
+  '22.11.0', '22.17.1', '22.21.1',
+  '24.5.0', '24.11.0', '24.18.0'
+];
+const EDGEONE_NODE_VERSION = '24.5.0';
+const atMost = (a, b) => {
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < 3; i += 1) {
+    const left = pa[i] ?? 0;
+    const right = pb[i] ?? 0;
+    if (left !== right) return left < right;
+  }
+  return true;
+};
+
 const fail = message => problems.push(message);
 const exists = relative => fs.existsSync(path.join(DIST, relative));
 const load = async relative =>
   import(pathToFileURL(path.join(ROOT, relative)).href);
 
-// 1. edgeone.json：平台只支持预装 Node 版本，26 必须靠 .nvmrc 自动下载
+// 1. edgeone.json：云端 Node 必须是平台预装且满足 Astro 7 的版本
 let config;
 try {
   config = JSON.parse(fs.readFileSync(path.join(ROOT, 'edgeone.json'), 'utf8'));
@@ -32,11 +53,13 @@ if (config) {
   if (typeof config.buildCommand !== 'string' || !config.buildCommand.includes('build')) {
     fail('edgeone.json 缺少有效的 buildCommand');
   }
-  if (!config.installCommand?.includes('pnpm')) {
-    fail('installCommand 必须显式安装 pnpm（.nvmrc 下载的 Node 26 不带包管理器）');
+  if (!config.installCommand?.includes('pnpm@12.18.0')) {
+    fail('installCommand 必须显式安装 pnpm 12.18.0（平台预装 pnpm 仅到 9）');
   }
-  if ('nodeVersion' in config) {
-    fail('edgeone.json 不要写 nodeVersion：平台只支持预装版本，Node 26 由 .nvmrc 自动下载');
+  if (!PREINSTALLED_NODE_VERSIONS.includes(config.nodeVersion)) {
+    fail('edgeone.json 的 nodeVersion 必须是平台预装的 Node 版本');
+  } else if (config.nodeVersion !== EDGEONE_NODE_VERSION) {
+    fail(`edgeone.json 的 nodeVersion 应为 ${EDGEONE_NODE_VERSION}（Astro 7 要求 >=22.23.4）`);
   }
   if (config.rewrites?.length > 100) fail('rewrites 超过平台上限 100 条');
   if (config.headers?.length > 30) fail('headers 超过平台上限 30 条');
@@ -49,11 +72,34 @@ if (config) {
       fail(`rewrite 目标不存在：${rule.source} → ${rule.destination}`);
     }
   }
+  notes.push(`云端构建 Node：${config.nodeVersion}（本地 / CI / Docker 仍为 26）`);
 }
 
-const nvmrc = path.join(ROOT, '.nvmrc');
-if (!fs.existsSync(nvmrc) || !fs.readFileSync(nvmrc, 'utf8').trim().startsWith('26')) {
-  fail('.nvmrc 缺失或未指向 Node 26');
+// package.json 的 engines 不能把云端 24.5.0 挡在门外
+try {
+  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
+  const minNode = String(pkg.engines?.node ?? '').match(/^>=\s*(\d+(?:\.\d+){0,2})/)?.[1];
+  if (!minNode || !atMost(minNode, EDGEONE_NODE_VERSION)) {
+    fail('package.json#engines.node 必须允许 EdgeOne 的 Node 24.5.0（写 >=26 会让依赖安装报错）');
+  }
+} catch (error) {
+  fail(`package.json 无法解析：${error.message}`);
+}
+
+// 根目录 .nvmrc 一旦提交，EdgeOne 会优先按它切换版本，非预装版本直接构建失败。
+// 本地 cp .nvmrc.example .nvmrc 不受影响（该文件已被 .gitignore 忽略）。
+let trackedNvmrc = '';
+try {
+  trackedNvmrc = execFileSync('git', ['ls-files', '--', '.nvmrc'], {
+    cwd: ROOT,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'ignore']
+  }).trim();
+} catch {
+  // 非 Git 工作区（例如 release.zip）没有索引，跳过跟踪检查
+}
+if (trackedNvmrc) {
+  fail('.nvmrc 不能提交：EdgeOne 会按它切换非预装的 Node 26 并在安装依赖前失败');
 }
 
 // 2. 静态产物
