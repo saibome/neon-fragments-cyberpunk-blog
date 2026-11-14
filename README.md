@@ -117,7 +117,7 @@ node scripts/serve.mjs
 2. 在项目设置里添加环境变量 `SITE_URL=https://your.domain`（构建期固化到 canonical / feed / 分享图），保存并开始部署；之后 push `main` 自动重部署。
 3. 选「全球（含中国大陆）」加速区并绑定自定义域名需要 ICP 备案；仅面向海外可选「全球（不含中国大陆）」。
 
-`edgeone.json` 覆盖的配置（控制台同名项以其为准）：
+`edgeone.json` 覆盖的配置（优先级高于控制台里的同名设置）：
 
 | 配置项 | 值 | 说明 |
 | :--- | :--- | :--- |
