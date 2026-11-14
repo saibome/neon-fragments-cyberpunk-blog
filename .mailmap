@@ -1,0 +1,6 @@
+# Git 作者归属映射（影响 git log / shortlog / blame 的显示）
+# 早期提交使用本机占位邮箱 venbo@venboDeMac-Mini.local，GitHub 无法关联账号，
+# 统一映射到 GitHub 提供的 noreply 邮箱。
+# 注意：GitHub 的贡献者统计不读取 .mailmap，只认提交里的作者邮箱；
+# 本仓库后续提交已固定使用下面的 canonical 身份。
+saibome <1995915+saibome@users.noreply.github.com> <venbo@venboDeMac-Mini.local>

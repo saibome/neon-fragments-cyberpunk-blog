@@ -190,6 +190,15 @@ bun run build           # 完整静态构建
 bun run check:edgeone   # EdgeOne 部署前自检（CI 亦会执行）
 ```
 
+## 贡献者
+
+| 贡献者 | 说明 |
+| :--- | :--- |
+| [@saibome](https://github.com/saibome) | 仓库所有者；Astro / bun 迁移、内容集合改造、站点精简与 EdgeOne 部署 |
+| [@ShinChven](https://github.com/ShinChven) | 原始项目与早期模板作者 |
+
+早期提交用了未关联 GitHub 的本机占位邮箱，`.mailmap` 已把它们统一映射到 `saibome`，让 `git log` / `git shortlog` / `git blame` 显示正确归属。GitHub 的贡献者统计只认提交里的作者邮箱（不读取 `.mailmap`），因此本仓库的 git 身份固定为 `saibome <1995915+saibome@users.noreply.github.com>`，后续提交会自动计入仓库所有者账号。
+
 ## 取舍
 
 - 首页把所有文章卡片预渲染进 HTML（利于 SEO），搜索 / 分页 / 标签在客户端完成；文章特别多时可改为静态分页路由。

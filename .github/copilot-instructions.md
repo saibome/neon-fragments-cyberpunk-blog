@@ -12,3 +12,4 @@
 - Use `bun install --frozen-lockfile`; the lockfile is `bun.lock`. All dependencies live in `dependencies` (Astro's recommendation); never introduce pnpm/npm/yarn lockfiles or `.nvmrc` (EdgeOne Pages would try to switch to a non-preinstalled Node version).
 - `@astrojs/check@0.9.12` supports TypeScript 5/6 only, so TypeScript stays on 6.0.3 even though 7.x exists. Do not bump it without replacing the Astro type checker.
 - Run `bun run typecheck && bun run lint && bun run test && bun run build && bun run check:edgeone` before proposing changes.
+- Git identity in this repo is fixed to `user.name=saibome` / `user.email=1995915+saibome@users.noreply.github.com` (GitHub-provided noreply). GitHub attributes contributors by the commit author email, so never commit with a `.local` or other placeholder email again: those commits show up as Anonymous. `.mailmap` maps the early `venbo` commits to the canonical identity for local git display only.
