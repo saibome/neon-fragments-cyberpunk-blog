@@ -1,6 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { listPosts, queryKeyFor } from '../lib/postList';
+import {
+  normalizePost,
+  sortPosts,
+  getTagCounts,
+  getPostDetail,
+  postDescription,
+  plainText
+} from '../src/lib/posts';
 import { DEFAULT_AUTHOR } from '../config';
 import type { BlogPost } from '../types';
 
@@ -15,41 +22,62 @@ function makePost(overrides: Partial<BlogPost>): BlogPost {
     author: DEFAULT_AUTHOR,
     tags: [],
     readTime: '约 1 分钟',
-    likes: 0,
     ...overrides
   };
 }
 
 const posts: BlogPost[] = [
-  makePost({ id: '1', slug: 'a', title: 'Alpha', tags: ['tech'] }),
-  makePost({ id: '2', slug: 'b', title: 'Beta', tags: ['tech', 'design'] }),
-  makePost({ id: '3', slug: 'c', title: 'Gamma', tags: ['life'] }),
-  makePost({ id: '4', slug: 'd', title: 'Delta', tags: [] })
+  makePost({ id: '1', slug: 'a', title: 'Alpha', tags: ['tech'], date: '2026-11-11T00:00:00.000Z' }),
+  makePost({ id: '2', slug: 'b', title: 'Beta', tags: ['tech', 'design'], date: '2026-11-12T00:00:00.000Z' }),
+  makePost({ id: '3', slug: 'c', title: 'Gamma', tags: ['life'], date: '2026-11-13T00:00:00.000Z' })
 ];
 
-test('分页返回摘要，正文不会进入列表响应', () => {
-  const result = listPosts(posts, new URLSearchParams('page=1&limit=2'));
-  assert.equal(result.posts.length, 2);
-  assert.equal(result.total, 4);
-  assert.equal(result.totalPages, 2);
-  assert.equal(result.queryKey, '1|2||');
-  assert.equal(result.posts[0].content, '');
-  assert.ok(result.posts[0].description);
+test('normalizePost 补齐默认值，并按 UTC 补算缺失的 permalink', () => {
+  const post = normalizePost({ slug: 'hello', date: '2077-09-15T08:30:00.000Z' });
+  assert.ok(post);
+  assert.equal(post.title, '未命名文章');
+  assert.equal(post.permalink, '/2077/09/15/hello');
+  assert.deepEqual(post.author, DEFAULT_AUTHOR);
+  assert.deepEqual(post.tags, []);
+  assert.equal(post.isGlitch, false);
 });
 
-test('搜索与标签过滤生效', () => {
-  assert.equal(listPosts(posts, new URLSearchParams('search=alpha')).total, 1);
-  assert.equal(listPosts(posts, new URLSearchParams('tag=tech')).total, 2);
-  assert.equal(listPosts(posts, new URLSearchParams('tags=design')).total, 1);
+test('normalizePost 拒绝缺少 slug 或 date 的数据', () => {
+  assert.equal(normalizePost(null), null);
+  assert.equal(normalizePost({ slug: 'only-slug' }), null);
+  assert.equal(normalizePost({ date: '2026-11-14' }), null);
 });
 
-test('queryKey 包含 limit，避免不同分页大小命中同一份缓存', () => {
-  assert.notEqual(queryKeyFor(1, 10, '', ''), queryKeyFor(1, 20, '', ''));
-  assert.equal(queryKeyFor(1, 10, 'a', 'b'), '1|10|a|b');
+test('sortPosts 按日期倒序且不修改原数组', () => {
+  const sorted = sortPosts(posts);
+  assert.deepEqual(sorted.map(post => post.slug), ['c', 'b', 'a']);
+  assert.deepEqual(posts.map(post => post.slug), ['a', 'b', 'c']);
 });
 
-test('空结果仍返回至少一页', () => {
-  const result = listPosts(posts, new URLSearchParams('search=不存在'));
-  assert.equal(result.total, 0);
-  assert.equal(result.totalPages, 1);
+test('getTagCounts 按出现次数降序、同次数按名称排序', () => {
+  assert.deepEqual(getTagCounts(posts), [
+    { tag: 'tech', count: 2 },
+    { tag: 'design', count: 1 },
+    { tag: 'life', count: 1 }
+  ]);
+  assert.deepEqual(getTagCounts([]), []);
+});
+
+test('getPostDetail 返回上一篇 / 下一篇引用', () => {
+  const sorted = sortPosts(posts);
+  const middle = getPostDetail('b', sorted);
+  assert.ok(middle);
+  assert.equal(middle.next?.slug, 'c', '列表按时间倒序，next 是更新的文章');
+  assert.equal(middle.previous?.slug, 'a');
+
+  const newest = getPostDetail('c', sorted);
+  assert.equal(newest?.next, undefined);
+  assert.equal(getPostDetail('不存在', sorted), undefined);
+});
+
+test('postDescription 优先用摘要，否则从正文纯文本截取', () => {
+  assert.equal(postDescription(makePost({ description: '自定义摘要' })), '自定义摘要');
+  const fallback = postDescription(makePost({ content: '<p>你好 <strong>夜之城</strong></p>' }));
+  assert.equal(fallback, '你好 夜之城……');
+  assert.equal(plainText('<p>abc</p>'), 'abc');
 });

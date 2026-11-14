@@ -21,8 +21,6 @@
     "build": "bun scripts/build-content.ts && bun run --bun astro build && bun scripts/postbuild.mjs",
     "build:edgeone": "bun run build && bun run check:edgeone",
     "check:edgeone": "bun scripts/check-edgeone.mjs",
-    "start": "bun scripts/serve.mjs",
-    "preview": "bun scripts/serve.mjs",
     "typecheck": "bun run --bun astro check",
     "lint": "oxlint . --ignore-pattern=.astro",
     "test": "bun test tests"

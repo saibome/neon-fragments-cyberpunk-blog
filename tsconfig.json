@@ -19,5 +19,5 @@
     }
   },
   "include": [".astro/types.d.ts", "**/*.ts", "**/*.tsx", "**/*.astro", "**/*.js", "**/*.mjs"],
-  "exclude": ["dist", "node_modules", "cloud-functions", ".astro/content.d.ts"]
+  "exclude": ["dist", "node_modules", ".astro/content.d.ts"]
 }

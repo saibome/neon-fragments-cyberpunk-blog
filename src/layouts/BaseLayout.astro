@@ -6,7 +6,6 @@ import ProfileSidebar from '../components/ProfileSidebar.astro';
 import { DEFAULT_AUTHOR } from '../../config';
 import { absoluteUrl } from '../../lib/permalink';
 import { SITE_URL } from '../lib/site';
-import { posts, getTagCounts } from '../lib/posts';
 
 interface Props {
   title: string;
@@ -34,7 +33,6 @@ const {
 
 const canonicalUrl = absoluteUrl(SITE_URL, canonicalPath);
 const profile = DEFAULT_AUTHOR;
-const stats = { postCount: posts.length, tagCount: getTagCounts().length };
 ---
 
 <!DOCTYPE html>
@@ -73,18 +71,6 @@ const stats = { postCount: posts.length, tagCount: getTagCounts().length };
       <Navbar activePath={activePath}>
         <Fragment slot="sidebar">
           <ProfileSidebar user={profile} activePath={activePath} />
-          <div class="mt-6 hidden lg:block">
-            <div class="border border-gray-800 p-4 bg-black/40">
-              <h4 class="text-cyber-red font-mono text-xs font-bold mb-2">系统状态</h4>
-              <div class="space-y-2">
-                <div class="flex justify-between text-[10px] font-mono text-gray-500"><span>防火墙</span><span class="text-green-500">已启用</span></div>
-                <div class="flex justify-between text-[10px] font-mono text-gray-500"><span>路由追踪</span><span class="text-red-500">已阻断</span></div>
-                <div class="flex justify-between text-[10px] font-mono text-gray-500"><span>数据碎片</span><span class="text-cyber-cyan">{stats.postCount}</span></div>
-                <div class="flex justify-between text-[10px] font-mono text-gray-500"><span>索引节点</span><span class="text-cyber-yellow">{stats.tagCount}</span></div>
-                <div class="w-full bg-gray-900 h-1 mt-2"><div class="bg-cyber-yellow h-full w-2/3 animate-pulse"></div></div>
-              </div>
-            </div>
-          </div>
         </Fragment>
       </Navbar>
 
@@ -117,7 +103,6 @@ const stats = { postCount: posts.length, tagCount: getTagCounts().length };
 
     <script>
       import '../scripts/site.js';
-      import '../scripts/brain-wave.js';
     </script>
   </body>
 </html>

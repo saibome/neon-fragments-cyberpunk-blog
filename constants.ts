@@ -6,6 +6,5 @@ export { DEFAULT_AUTHOR } from './config';
 export const NAV_ITEMS = [
   { id: NavItem.HOME, label: '首页', icon: 'terminal', path: '/' },
   { id: NavItem.NET, label: '网络', icon: 'radio', path: '/net' },
-  { id: NavItem.FILES, label: '数据', icon: 'folder-open', path: '/data' },
   { id: NavItem.GEAR, label: '技术', icon: 'settings', path: '/gear' }
 ];

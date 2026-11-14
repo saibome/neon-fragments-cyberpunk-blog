@@ -5,8 +5,7 @@ const DEFAULT_SITE_URL = 'https://saibo.me';
 
 /**
  * 统一解析 SITE_URL：优先 shell / CI 环境变量，其次 .env.local。
- * Astro 配置、构建期页面渲染与 postbuild 都走这里，保证 canonical / feed /
- * OG 图 / Cloud Functions 使用同一个域名。
+ * Astro 配置与构建期页面渲染都走这里，保证 canonical / feed / OG 图使用同一个域名。
  */
 export function resolveSiteUrl(cwd = process.cwd()) {
   const fromEnv = process.env.SITE_URL?.trim();

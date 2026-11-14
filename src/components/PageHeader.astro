@@ -3,10 +3,10 @@ import GlitchText from './GlitchText.astro';
 
 interface Props {
   title: string;
-  subtitle?: string;
+  subtitle: string;
 }
 
-const { title, subtitle = '系统消息 // 本区域建设中' } = Astro.props;
+const { title, subtitle } = Astro.props;
 ---
 
 <div class="text-center mb-8 w-full max-w-4xl mx-auto">

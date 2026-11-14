@@ -4,7 +4,7 @@ import { absoluteUrl } from '../../lib/permalink';
 
 export const SITE_TITLE = '霓虹碎片：赛博朋克博客';
 export const SITE_DESCRIPTION = '记录代码、设计、装备与夜之城灵感的沉浸式赛博朋克博客。';
-export const STATIC_PAGES = ['/', '/net', '/data', '/gear'];
+export const STATIC_PAGES = ['/', '/net', '/gear'];
 
 export function escapeXml(value: string): string {
   return value.replace(/[<>&'"]/g, char => {
@@ -48,41 +48,6 @@ export function renderRss(): string {
     ${items}
   </channel>
 </rss>`;
-}
-
-export function renderAtom(): string {
-  const feedPosts = posts.slice(0, 50);
-  const updated = feedPosts.length > 0
-    ? new Date(feedPosts[0].date).toISOString()
-    : new Date().toISOString();
-
-  const entries = feedPosts.map(post => {
-    const link = absoluteUrl(SITE_URL, post.permalink);
-    return `
-    <entry>
-      <title>${escapeXml(post.title)}</title>
-      <link href="${escapeXml(link)}"/>
-      <id>${escapeXml(link)}</id>
-      <updated>${new Date(post.date).toISOString()}</updated>
-      <summary>${escapeXml(postDescription(post))}</summary>
-      <author>
-        <name>${escapeXml(post.author.name)}</name>
-      </author>
-    </entry>`;
-  }).join('');
-
-  return `<?xml version="1.0" encoding="utf-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <title>${escapeXml(SITE_TITLE)}</title>
-  <link href="${escapeXml(`${SITE_URL}/atom.xml`)}" rel="self"/>
-  <link href="${escapeXml(SITE_URL)}"/>
-  <updated>${updated}</updated>
-  <id>${escapeXml(`${SITE_URL}/`)}</id>
-  <author>
-    <name>${escapeXml(SITE_TITLE)}</name>
-  </author>
-  ${entries}
-</feed>`;
 }
 
 export function renderSitemap(): string {

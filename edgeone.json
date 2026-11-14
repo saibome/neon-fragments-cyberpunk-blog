@@ -26,10 +26,6 @@
   ],
   "rewrites": [
     { "source": "/net", "destination": "/net.html" },
-    { "source": "/data", "destination": "/data.html" },
     { "source": "/gear", "destination": "/gear.html" }
-  ],
-  "cloudFunctions": {
-    "maxDuration": 10
-  }
+  ]
 }

@@ -1,5 +1,5 @@
 output/
-# lib/ 存放共享源码（固定链接、列表查询），必须纳入版本库
+# lib/ 存放共享源码（固定链接），必须纳入版本库
 .vscode/
 
 # Astro 生成的类型缓存
@@ -23,8 +23,6 @@ public/images/
 .trae-html-share-packages/
 .screenshots/
 .workbuddy/
-release/
-release.zip
 coverage/
 
 test/config.json

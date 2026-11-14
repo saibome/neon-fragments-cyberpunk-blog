@@ -24,35 +24,35 @@ function h(type: string, props: Record<string, unknown> = {}, ...children: unkno
 }
 
 const fontCache = new Map<string, Promise<ArrayBuffer>>();
-let fontDirectoryPromise: Promise<string> | undefined;
 
-/** 构建期优先读取 public/fonts，容器/预览环境也可通过 OG_FONT_DIR 覆盖 */
-function resolveFontDirectory(): Promise<string> {
-  if (process.env.OG_FONT_DIR) return Promise.resolve(path.resolve(process.env.OG_FONT_DIR));
-  fontDirectoryPromise ??= (async () => {
-    for (const dir of ['public/fonts', 'dist/fonts']) {
-      const candidate = path.resolve(dir);
-      try {
-        await fs.access(path.join(candidate, 'rajdhani-700.ttf'));
-        return candidate;
-      } catch {
-        // 该目录下没有字体，继续尝试下一个候选
-      }
-    }
-    throw new Error('找不到 OG 图字体目录，请设置 OG_FONT_DIR');
-  })();
-  return fontDirectoryPromise;
-}
+/**
+ * 构建期字体分两处存放：
+ * - public/fonts：浏览器实际加载的拉丁字体，会随 dist/ 一起部署；
+ * - assets/og-fonts：仅生成 OG 图需要的中文字体（约 20MB），不进入 dist/。
+ * 设置 OG_FONT_DIR 时改为只从该目录读取全部字体。
+ */
+const FONT_DIRECTORIES = ['assets/og-fonts', 'public/fonts'];
 
 function loadLocalFont(filename: string): Promise<ArrayBuffer> {
   const cached = fontCache.get(filename);
   if (cached) return cached;
 
-  const promise = resolveFontDirectory()
-    .then(directory => fs.readFile(path.join(directory, filename)))
-    .then(buffer =>
-      buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer
-    );
+  const promise = (async () => {
+    const directories = process.env.OG_FONT_DIR
+      ? [path.resolve(process.env.OG_FONT_DIR)]
+      : FONT_DIRECTORIES.map(dir => path.resolve(dir));
+
+    for (const directory of directories) {
+      try {
+        const buffer = await fs.readFile(path.join(directory, filename));
+        return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+      }
+    }
+    throw new Error(`找不到 OG 图字体 ${filename}，请检查 assets/og-fonts 或设置 OG_FONT_DIR`);
+  })();
+
   fontCache.set(filename, promise);
   promise.catch(() => fontCache.delete(filename));
   return promise;

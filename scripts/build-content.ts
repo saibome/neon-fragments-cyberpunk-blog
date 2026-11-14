@@ -51,7 +51,6 @@ async function buildContent(): Promise<void> {
       author: fm.author,
       tags: fm.tags,
       readTime: fm.readTime,
-      likes: fm.likes,
       isGlitch: fm.isGlitch
     });
   }

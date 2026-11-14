@@ -2,13 +2,13 @@
  * EdgeOne Pages 部署前自检。
  *
  * 在 bun run build 之后运行，验证：项目配置符合平台约束、bun 工具链完整、
- * dist/ 产物完整、Cloud Functions 的 data.js 与文章数据同步、函数入口可被平台识别。
+ * dist/ 静态产物完整、已移除的运行时功能没有回退、构建期字体未进入产物。
  * 任何一项失败都以非零退出码结束，便于 CI 卡住有问题的构建。
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { resolveSiteUrl } from './env.mjs';
 
 const ROOT = process.cwd();
 const DIST = path.join(ROOT, 'dist');
@@ -37,8 +37,7 @@ const atMost = (a, b) => {
 
 const fail = message => problems.push(message);
 const exists = relative => fs.existsSync(path.join(DIST, relative));
-const load = async relative =>
-  import(pathToFileURL(path.join(ROOT, relative)).href);
+const inRoot = relative => fs.existsSync(path.join(ROOT, relative));
 
 // 1. edgeone.json：云端 Node 必须是平台预装版本，构建命令锁定 bun
 let config;
@@ -62,8 +61,8 @@ if (config) {
   } else if (config.nodeVersion !== EDGEONE_NODE_VERSION) {
     fail(`edgeone.json 的 nodeVersion 应为 ${EDGEONE_NODE_VERSION}（用于安装 bun 的 npm 环境）`);
   }
-  if (config.cloudFunctions?.maxDuration === undefined) {
-    fail('cloudFunctions.maxDuration 缺失（平台已弃用 cloudFunctions.nodejs.maxDuration）');
+  if (config.cloudFunctions !== undefined) {
+    fail('站点为纯静态部署，edgeone.json 不应包含 cloudFunctions');
   }
   if (config.rewrites?.length > 100) fail('rewrites 超过平台上限 100 条');
   if (config.headers?.length > 30) fail('headers 超过平台上限 30 条');
@@ -75,11 +74,14 @@ if (config) {
     } else if (!exists(target)) {
       fail(`rewrite 目标不存在：${rule.source} → ${rule.destination}`);
     }
+    if (['/data', '/api'].includes(rule.source)) {
+      fail(`rewrite 指向已移除的路由：${rule.source}`);
+    }
   }
   notes.push(`云端构建：bun 1.4.4（平台预装 Node ${config.nodeVersion} 仅用于安装 bun）`);
 }
 
-// package.json / 锁文件：必须保持 bun 技术栈，且 engines 不挡住云端 Node
+// 2. package.json / 锁文件：必须保持 bun 技术栈，且 engines 不挡住云端 Node
 try {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const minNode = String(pkg.engines?.node ?? '').match(/^>=\s*(\d+(?:\.\d+){0,2})/)?.[1];
@@ -88,6 +90,9 @@ try {
   }
   if (pkg.packageManager !== 'bun@1.4.4') {
     fail('package.json#packageManager 必须是 bun@1.4.4');
+  }
+  if (pkg.scripts?.start || pkg.scripts?.preview) {
+    fail('自托管静态服务已移除，package.json 不应再声明 start / preview');
   }
   if (!fs.existsSync(path.join(ROOT, 'bun.lock'))) fail('缺少 bun.lock（请先执行 bun install）');
   for (const legacy of ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json', 'yarn.lock']) {
@@ -106,21 +111,32 @@ try {
     stdio: ['ignore', 'pipe', 'ignore']
   }).trim();
 } catch {
-  // 非 Git 工作区（例如 release.zip）没有索引，跳过跟踪检查
+  // 非 Git 工作区没有索引，跳过跟踪检查
 }
 if (trackedNvmrc) {
   fail('.nvmrc 不能提交：EdgeOne 会按它切换非预装的 Node 版本并在安装依赖前失败');
 }
 
-// 2. 静态产物
+// 3. 已移除的运行时功能不应回退
+const removed = [
+  'cloud-functions', 'scripts/serve.mjs', 'Dockerfile', '.dockerignore',
+  'lib/postList.ts', 'src/pages/api', 'src/pages/atom.xml.ts',
+  'src/pages/data.astro', 'src/scripts/brain-wave.js'
+];
+for (const item of removed) {
+  if (inRoot(item)) fail(`已移除的功能不应回退：${item}`);
+}
+
+// 4. 静态产物
 const required = [
-  'index.html', '404.html', 'canonical.json',
-  'rss.xml', 'atom.xml', 'sitemap.xml', 'robots.txt',
-  'api/posts.json', 'api/tags.json', 'net.html', 'data.html', 'gear.html',
-  'cover.svg', 'avatar.svg'
+  'index.html', '404.html', 'rss.xml', 'sitemap.xml', 'robots.txt',
+  'net.html', 'gear.html', 'cover.svg', 'avatar.svg'
 ];
 for (const file of required) {
   if (!exists(file)) fail(`dist/ 缺少必需产物：${file}`);
+}
+for (const file of ['atom.xml', 'canonical.json', 'data.html', 'api/posts.json', 'api/tags.json']) {
+  if (exists(file)) fail(`dist/ 不应包含已移除的产物：${file}`);
 }
 
 let posts = [];
@@ -143,55 +159,27 @@ for (const post of posts) {
   for (const file of [`${base}/index.html`, `${base}.html`, `card/${base}.png`]) {
     if (!exists(file)) fail(`文章 ${post.slug} 缺少产物：${file}`);
   }
-  if (exists(`api/posts/${post.slug}.json`) === false) {
-    fail(`文章 ${post.slug} 缺少静态详情 JSON`);
-  }
 }
 
-// 3. Cloud Functions 数据与入口
-let data;
+// 5. 字体：浏览器字体随产物部署，OG 图专用的大字体只留在构建期目录
+for (const font of ['rajdhani-700.ttf', 'share-tech-mono-400.ttf']) {
+  if (!exists(`fonts/${font}`)) fail(`dist/fonts 缺少浏览器字体：${font}`);
+}
+for (const font of ['noto-sans-sc-400.ttf', 'noto-sans-sc-700.ttf']) {
+  if (exists(`fonts/${font}`)) fail(`构建期字体 ${font} 不应进入 dist/fonts（约 20MB）`);
+  if (!inRoot(`assets/og-fonts/${font}`)) fail(`缺少 OG 图字体：assets/og-fonts/${font}`);
+}
+
+// 6. SITE_URL 在构建期固化进 canonical
+const siteUrl = resolveSiteUrl(ROOT);
 try {
-  data = await load('cloud-functions/data.js');
+  const indexHtml = fs.readFileSync(path.join(DIST, 'index.html'), 'utf8');
+  const canonical = indexHtml.match(/<link[^>]*rel="canonical"[^>]*>/)?.[0] ?? '';
+  if (!canonical.includes(siteUrl)) fail(`首页 canonical 未注入 SITE_URL（${siteUrl}）`);
 } catch (error) {
-  fail(`cloud-functions/data.js 无法加载：${error.message}`);
+  fail(`dist/index.html 无法读取：${error.message}`);
 }
-
-if (data) {
-  const expected = posts.map(post => `${post.slug}|${post.permalink}`).sort();
-  const actual = (data.posts ?? []).map(post => `${post.slug}|${post.permalink}`).sort();
-  if (JSON.stringify(expected) !== JSON.stringify(actual)) {
-    fail('cloud-functions/data.js 与 services/posts.json 不一致，请重新执行 bun run build');
-  }
-  if (!Array.isArray(data.tagCounts)) fail('cloud-functions/data.js 缺少 tagCounts');
-
-  try {
-    const canonical = JSON.parse(fs.readFileSync(path.join(DIST, 'canonical.json'), 'utf8'));
-    if (data.siteUrl !== canonical.siteUrl) {
-      fail('Cloud Function 的 siteUrl 与 dist/canonical.json 不一致（SITE_URL 是否在两次构建间变化？）');
-    }
-  } catch (error) {
-    fail(`dist/canonical.json 无法解析：${error.message}`);
-  }
-  notes.push(`站点地址：${data.siteUrl}`);
-}
-
-const entryPoints = [
-  'cloud-functions/[[default]].js',
-  'cloud-functions/api/posts.js',
-  'cloud-functions/api/tags.js',
-  'cloud-functions/api/posts/[slug].js'
-];
-for (const entry of entryPoints) {
-  try {
-    const mod = await load(entry);
-    if (typeof mod.onRequest !== 'function' || typeof mod.default !== 'function') {
-      fail(`${entry} 必须同时导出 onRequest 与 default`);
-    }
-  } catch (error) {
-    fail(`${entry} 无法加载：${error.message}`);
-  }
-}
-notes.push(`函数入口：${entryPoints.length} 个（catch-all + 3 条明确路由）`);
+notes.push(`站点地址：${siteUrl}`);
 notes.push(`文章：${posts.length} 篇`);
 
 if (problems.length) {
@@ -201,5 +189,5 @@ if (problems.length) {
 } else {
   console.log('[edgeone] 部署前自检通过');
   for (const note of notes) console.log(`  · ${note}`);
-  console.log('  · 输出目录 dist，Cloud Functions 位于仓库根 cloud-functions/');
+  console.log('  · 输出目录 dist，纯静态部署，无 Cloud Functions');
 }

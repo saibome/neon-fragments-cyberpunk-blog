@@ -33,7 +33,6 @@ export function normalizePost(value: unknown): BlogPost | null {
       : author,
     tags: Array.isArray(post.tags) ? post.tags : [],
     readTime: post.readTime || '约 1 分钟',
-    likes: post.likes ?? 0,
     isGlitch: post.isGlitch ?? false,
     previous: post.previous,
     next: post.next
@@ -67,16 +66,6 @@ export function postDescription(post: BlogPost): string {
   return '';
 }
 
-/** API / 列表数据不携带正文，减小静态产物体积 */
-export function summarizePost(post: BlogPost): BlogPost {
-  const { content, ...rest } = post;
-  return {
-    ...rest,
-    content: '',
-    description: rest.description || `${plainText(content).substring(0, 200)}……`
-  };
-}
-
 export function getTagCounts(list: BlogPost[] = posts): { tag: string; count: number }[] {
   const counts = new Map<string, number>();
   for (const post of list) {
@@ -87,10 +76,6 @@ export function getTagCounts(list: BlogPost[] = posts): { tag: string; count: nu
   return [...counts.entries()]
     .map(([tag, count]) => ({ tag, count }))
     .sort((a, b) => b.count - a.count || a.tag.localeCompare(b.tag));
-}
-
-export function findPostBySlug(slug: string, list: BlogPost[] = posts): BlogPost | undefined {
-  return list.find(post => post.slug === slug);
 }
 
 export function getPostDetail(

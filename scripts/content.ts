@@ -30,7 +30,6 @@ const frontmatterSchema = z.object({
   description: z.string().optional(),
   image: z.string().optional(),
   readTime: z.string().optional(),
-  likes: z.number().int().min(0).optional(),
   isGlitch: z.boolean().optional(),
   tags: z.array(z.string()).optional(),
   author: z.union([z.string(), profileSchema]).optional()
@@ -110,7 +109,6 @@ export interface ParsedFrontmatter {
   description?: string;
   image?: string;
   readTime: string;
-  likes: number;
   isGlitch: boolean;
   tags: string[];
   author: UserProfile;
@@ -146,7 +144,6 @@ export function parseFrontmatter(raw: string, filename: string): ParsedFrontmatt
     description: fm.description,
     image: fm.image,
     readTime: fm.readTime || computeReadTime(content),
-    likes: fm.likes ?? 0,
     isGlitch: fm.isGlitch ?? false,
     tags: fm.tags ?? [],
     author: mergeAuthor(fm.author),

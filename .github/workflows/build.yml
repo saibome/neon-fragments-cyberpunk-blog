@@ -1,18 +1,14 @@
-name: Build and Release
+name: Build
 
 on:
   push:
     branches: [ main ]
-    tags:
-      - 'v*'
   pull_request:
     branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
 
     steps:
     - uses: actions/checkout@v7
@@ -34,45 +30,8 @@ jobs:
     - name: Verify EdgeOne deployment readiness
       run: bun run check:edgeone
 
-    - name: Prepare Release Artifact
-      run: |
-        mkdir -p release/scripts release/services
-        cp package.json bun.lock Dockerfile edgeone.json release/
-        cp scripts/serve.mjs release/scripts/serve.mjs
-        cp -r dist release/
-        cp services/posts.json release/services/posts.json
-
-    - name: Zip Release
-      run: |
-        cd release
-        zip -r ../release.zip .
-
-    - name: Upload Artifact
+    - name: Upload static site
       uses: actions/upload-artifact@v7
       with:
-        name: release-package
-        path: release.zip
-
-    - name: Create Release
-      uses: softprops/action-gh-release@v3
-      if: startsWith(github.ref, 'refs/tags/')
-      with:
-        files: release.zip
-
-    - name: Update Latest Tag
-      if: github.ref == 'refs/heads/main'
-      run: |
-        git config --global user.email "actions@github.com"
-        git config --global user.name "GitHub Actions"
-        git tag -f latest
-        git push -f origin latest
-
-    - name: Update Latest Release
-      uses: softprops/action-gh-release@v3
-      if: github.ref == 'refs/heads/main'
-      with:
-        tag_name: latest
-        name: Latest Build
-        files: release.zip
-        draft: false
-        prerelease: false
+        name: dist
+        path: dist

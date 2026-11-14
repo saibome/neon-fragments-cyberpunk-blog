@@ -18,19 +18,9 @@ export interface BlogPost {
   author: UserProfile;
   tags: string[];
   readTime: string;
-  likes: number;
   isGlitch?: boolean;
   previous?: PostRef;
   next?: PostRef;
-}
-
-export interface PostListResult {
-  posts: BlogPost[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-  queryKey: string;
 }
 
 export interface UserProfile {
@@ -50,6 +40,5 @@ export interface UserProfile {
 export enum NavItem {
   HOME = 'HOME',
   NET = 'NET',
-  GEAR = 'GEAR',
-  FILES = 'FILES'
+  GEAR = 'GEAR'
 }
