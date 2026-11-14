@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makePermalink, cardUrl, absoluteUrl } from '../lib/permalink';
+import { makePermalink, cardUrl, absoluteUrl } from '../src/lib/permalink';
 
 test('永久链接只由 UTC 日期决定，切换运行时时区不会漂移', () => {
   const iso = '2026-11-14T20:00:00.000Z';

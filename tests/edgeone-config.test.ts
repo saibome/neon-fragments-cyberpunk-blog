@@ -30,16 +30,17 @@ test('clean URL 兜底规则只包含现存静态页', () => {
   }
 });
 
-test('包管理器、锁文件与脚本统一使用 bun', () => {
+test('包管理器、锁文件与脚本统一使用 bun，内容编译交给 Astro', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.equal(pkg.packageManager, 'bun@1.4.4');
   assert.equal(pkg.engines.bun, '>=1.4.4');
-  assert.match(pkg.scripts.build, /bun run --bun astro build/);
-  assert.match(pkg.scripts['build:content'], /^bun scripts\/build-content\.ts$/);
+  assert.match(pkg.scripts.build, /astro build/);
+  assert.equal(pkg.scripts['build:content'], undefined, '内容编译已由内容集合取代');
+  assert.doesNotMatch(pkg.scripts.build, /build-content/);
   assert.match(pkg.scripts.test, /^bun test/);
   assert.equal(pkg.scripts.start, undefined, '自托管静态服务已移除');
   assert.equal(pkg.scripts.preview, undefined, '自托管静态服务已移除');
-  assert.equal(pkg.devDependencies.tsx, undefined, 'bun 原生执行 TypeScript，不需要 tsx');
+  assert.equal(pkg.devDependencies, undefined, '构建期依赖统一放 dependencies');
   assert.ok(exists('bun.lock'), '缺少 bun.lock');
   for (const legacy of ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json', 'yarn.lock']) {
     assert.equal(exists(legacy), false, `不应存在 ${legacy}`);
@@ -64,11 +65,14 @@ test('package.json 的 engines 允许 EdgeOne 的 Node 24.5.0', () => {
   assert.match(engineNode, /22\.23\.4/, 'Astro 7 的最低 Node 要求');
 });
 
-test('已移除的运行时功能没有回退', () => {
+test('已移除的运行时功能与旧目录结构没有回退', () => {
   const removed = [
     'cloud-functions', 'scripts/serve.mjs', 'Dockerfile', '.dockerignore',
     'lib/postList.ts', 'src/pages/api', 'src/pages/atom.xml.ts',
-    'src/pages/data.astro', 'src/scripts/brain-wave.js'
+    'src/pages/data.astro', 'src/scripts/brain-wave.js',
+    '_posts', 'config.ts', 'constants.ts', 'types.ts', 'metadata.json',
+    'lib/permalink.ts', 'services/posts.json', 'scripts/build-content.ts',
+    'assets/og-fonts'
   ];
   for (const item of removed) {
     assert.equal(exists(item), false, `不应存在 ${item}`);
@@ -84,18 +88,26 @@ test('订阅源只保留 RSS / sitemap / robots', () => {
   assert.doesNotMatch(read('src/lib/feeds.ts'), /\/data/);
 });
 
-test('OG 图专用的中文字体不进入 public/fonts', () => {
+test('OG 图专用的中文字体放在 src/assets，不进入 public/fonts', () => {
   for (const font of ['noto-sans-sc-400.ttf', 'noto-sans-sc-700.ttf']) {
     assert.equal(exists(`public/fonts/${font}`), false, `${font} 只用于构建期生成 OG 图`);
-    assert.ok(exists(`assets/og-fonts/${font}`), `缺少 assets/og-fonts/${font}`);
+    assert.ok(exists(`src/assets/og-fonts/${font}`), `缺少 src/assets/og-fonts/${font}`);
   }
   assert.ok(exists('public/fonts/rajdhani-700.ttf'));
   assert.ok(exists('public/fonts/share-tech-mono-400.ttf'));
   assert.doesNotMatch(read('src/lib/ogImage.ts'), /dist\/fonts/);
+  assert.match(read('src/lib/ogImage.ts'), /src\/assets\/og-fonts/);
+});
+
+test('部署自检校验内容集合配置与 dist 文章页', () => {
+  const check = read('scripts/check-edgeone.mjs');
+  assert.match(check, /src\/content\.config\.ts/);
+  assert.match(check, /findPostDirs/);
+  assert.doesNotMatch(check, /services\/posts\.json 无法解析/);
 });
 
 test('CI 只做质量门禁与静态产物上传', () => {
   const ci = read('.github/workflows/build.yml');
   assert.match(ci, /check:edgeone/);
-  assert.doesNotMatch(ci, /release\.zip|Dockerfile|action-gh-release|git tag/);
+  assert.doesNotMatch(ci, /build:content|release\.zip|Dockerfile|action-gh-release|git tag/);
 });

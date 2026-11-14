@@ -1,10 +1,8 @@
+import { SITE_DESCRIPTION, SITE_TITLE, STATIC_PAGES } from '../consts';
 import { SITE_URL } from './site';
-import { posts, postDescription } from './posts';
-import { absoluteUrl } from '../../lib/permalink';
-
-export const SITE_TITLE = '霓虹碎片：赛博朋克博客';
-export const SITE_DESCRIPTION = '记录代码、设计、装备与夜之城灵感的沉浸式赛博朋克博客。';
-export const STATIC_PAGES = ['/', '/net', '/gear'];
+import { postDescription } from './post-utils';
+import { absoluteUrl } from './permalink';
+import type { BlogPost } from '../types';
 
 export function escapeXml(value: string): string {
   return value.replace(/[<>&'"]/g, char => {
@@ -19,7 +17,7 @@ export function escapeXml(value: string): string {
   });
 }
 
-export function renderRss(): string {
+export function renderRss(posts: BlogPost[]): string {
   const feedPosts = posts.slice(0, 50);
   const lastBuildDate = feedPosts.length > 0
     ? new Date(feedPosts[0].date).toUTCString()
@@ -50,7 +48,7 @@ export function renderRss(): string {
 </rss>`;
 }
 
-export function renderSitemap(): string {
+export function renderSitemap(posts: BlogPost[]): string {
   const latestPostDate = posts[0] ? new Date(posts[0].date).toISOString() : new Date().toISOString();
   const urls = [
     ...STATIC_PAGES.map(page => `

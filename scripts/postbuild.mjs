@@ -1,15 +1,15 @@
 /**
  * Astro 构建后处理：为目录式页面补一份平铺 .html 副本，
  * 兼容 EdgeOne Pages 不自动展开目录索引的托管规则。
+ * 文章页直接从 dist/ 的目录结构扫描，不需要额外的 JSON 清单。
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { findPostDirs, STATIC_PAGES } from './dist-pages.mjs';
 
 const ROOT = process.cwd();
 const DIST = path.join(ROOT, 'dist');
-const posts = JSON.parse(await fs.readFile(path.join(ROOT, 'services/posts.json'), 'utf8'));
-
-const STATIC_PAGES = ['net', 'gear'];
+const postDirs = await findPostDirs(DIST);
 
 let flattened = 0;
 async function flatten(relativeDir, flatFile) {
@@ -28,8 +28,8 @@ async function flatten(relativeDir, flatFile) {
 for (const page of STATIC_PAGES) {
   await flatten(page, `${page}.html`);
 }
-for (const post of posts) {
-  await flatten(post.permalink.slice(1), `${post.permalink.slice(1)}.html`);
+for (const dir of postDirs) {
+  await flatten(dir, `${dir}.html`);
 }
 
-console.log(`[postbuild] ${posts.length} 篇文章、${flattened} 个平铺页面副本已生成`);
+console.log(`[postbuild] ${postDirs.length} 篇文章、${flattened} 个平铺页面副本已生成`);

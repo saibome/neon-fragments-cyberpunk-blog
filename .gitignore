@@ -1,13 +1,10 @@
 output/
-# lib/ 存放共享源码（固定链接），必须纳入版本库
 .vscode/
 
 # Astro 生成的类型缓存
 .astro/
 
-# 构建产物：文章源已纳入版本库，只有编译结果被忽略
-services/posts.json
-posts.json
+# 构建产物与 Astro 内容集合缓存（文章原文已入库，不再生成中间 JSON）
 public/images/
 
 # EdgeOne Pages 会按根目录 .nvmrc 尝试切换 Node；平台只提供预装版本。

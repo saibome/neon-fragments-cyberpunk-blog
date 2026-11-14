@@ -2,13 +2,16 @@
  * EdgeOne Pages 部署前自检。
  *
  * 在 bun run build 之后运行，验证：项目配置符合平台约束、bun 工具链完整、
- * dist/ 静态产物完整、已移除的运行时功能没有回退、构建期字体未进入产物。
+ * 目录符合 Astro 规范且文章走内容集合、dist/ 静态产物完整、
+ * 已移除的运行时功能没有回退、构建期字体未进入产物。
  * 任何一项失败都以非零退出码结束，便于 CI 卡住有问题的构建。
  */
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
+import fsp from 'node:fs/promises';
 import path from 'node:path';
 import { resolveSiteUrl } from './env.mjs';
+import { findPostDirs } from './dist-pages.mjs';
 
 const ROOT = process.cwd();
 const DIST = path.join(ROOT, 'dist');
@@ -94,6 +97,9 @@ try {
   if (pkg.scripts?.start || pkg.scripts?.preview) {
     fail('自托管静态服务已移除，package.json 不应再声明 start / preview');
   }
+  if (pkg.scripts?.['build:content'] || /build-content/.test(String(pkg.scripts?.build ?? ''))) {
+    fail('自建内容编译脚本已由 Astro 内容集合取代，不应再有 build:content');
+  }
   if (!fs.existsSync(path.join(ROOT, 'bun.lock'))) fail('缺少 bun.lock（请先执行 bun install）');
   for (const legacy of ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json', 'yarn.lock']) {
     if (fs.existsSync(path.join(ROOT, legacy))) fail(`发现旧包管理器文件：${legacy}`);
@@ -117,14 +123,45 @@ if (trackedNvmrc) {
   fail('.nvmrc 不能提交：EdgeOne 会按它切换非预装的 Node 版本并在安装依赖前失败');
 }
 
-// 3. 已移除的运行时功能不应回退
+// 3. Astro 目录规范 + 内容集合是文章的唯一数据源
+const collectionConfigPath = path.join(ROOT, 'src/content.config.ts');
+if (!inRoot('src/content.config.ts')) {
+  fail('缺少 src/content.config.ts（Astro 内容集合配置）');
+} else {
+  const source = fs.readFileSync(collectionConfigPath, 'utf8');
+  for (const token of ['defineCollection', 'glob(', './src/content/posts', 'postSchema', 'export const collections = { posts }']) {
+    if (!source.includes(token)) fail(`src/content.config.ts 缺少内容集合声明：${token}`);
+  }
+}
+
+let contentFiles = [];
+try {
+  contentFiles = (await fsp.readdir(path.join(ROOT, 'src/content/posts')))
+    .filter(name => name.endsWith('.md'));
+} catch (error) {
+  fail(`src/content/posts 无法读取：${error.message}`);
+}
+if (contentFiles.length === 0) fail('src/content/posts/ 中没有文章，部署后会是空博客');
+
+const requiredSources = [
+  'src/consts.ts', 'src/types.ts', 'src/lib/permalink.ts',
+  'src/lib/post-schema.ts', 'src/lib/post-utils.ts', 'src/lib/posts.ts',
+  'src/lib/markdown.ts', 'src/content/posts'
+];
+for (const source of requiredSources) {
+  if (!inRoot(source)) fail(`Astro 规范目录缺少：${source}`);
+}
+
 const removed = [
   'cloud-functions', 'scripts/serve.mjs', 'Dockerfile', '.dockerignore',
   'lib/postList.ts', 'src/pages/api', 'src/pages/atom.xml.ts',
-  'src/pages/data.astro', 'src/scripts/brain-wave.js'
+  'src/pages/data.astro', 'src/scripts/brain-wave.js',
+  '_posts', 'services/posts.json', 'metadata.json',
+  'scripts/build-content.ts', 'scripts/content.ts', 'scripts/markdown.ts',
+  'config.ts', 'constants.ts', 'types.ts', 'lib/permalink.ts', 'assets/og-fonts'
 ];
 for (const item of removed) {
-  if (inRoot(item)) fail(`已移除的功能不应回退：${item}`);
+  if (inRoot(item)) fail(`旧目录结构或已移除的功能不应回退：${item}`);
 }
 
 // 4. 静态产物
@@ -139,35 +176,23 @@ for (const file of ['atom.xml', 'canonical.json', 'data.html', 'api/posts.json',
   if (exists(file)) fail(`dist/ 不应包含已移除的产物：${file}`);
 }
 
-let posts = [];
-try {
-  posts = JSON.parse(fs.readFileSync(path.join(ROOT, 'services/posts.json'), 'utf8'));
-} catch (error) {
-  fail(`services/posts.json 无法解析：${error.message}`);
+const postDirs = await findPostDirs(DIST);
+if (postDirs.length !== contentFiles.length) {
+  fail(`内容集合文章数（${contentFiles.length}）与 dist 文章页（${postDirs.length}）不一致`);
 }
-
-if (!Array.isArray(posts) || posts.length === 0) {
-  fail('文章数据为空，部署后会是空博客');
-}
-
-for (const post of posts) {
-  const base = post.permalink?.replace(/^\/+/, '');
-  if (!base) {
-    fail(`文章 ${post.slug} 缺少 permalink`);
-    continue;
-  }
+for (const base of postDirs) {
   for (const file of [`${base}/index.html`, `${base}.html`, `card/${base}.png`]) {
-    if (!exists(file)) fail(`文章 ${post.slug} 缺少产物：${file}`);
+    if (!exists(file)) fail(`文章 ${base} 缺少产物：${file}`);
   }
 }
 
-// 5. 字体：浏览器字体随产物部署，OG 图专用的大字体只留在构建期目录
+// 5. 字体：浏览器字体随产物部署，OG 图专用的大字体只留在 src/assets
 for (const font of ['rajdhani-700.ttf', 'share-tech-mono-400.ttf']) {
   if (!exists(`fonts/${font}`)) fail(`dist/fonts 缺少浏览器字体：${font}`);
 }
 for (const font of ['noto-sans-sc-400.ttf', 'noto-sans-sc-700.ttf']) {
   if (exists(`fonts/${font}`)) fail(`构建期字体 ${font} 不应进入 dist/fonts（约 20MB）`);
-  if (!inRoot(`assets/og-fonts/${font}`)) fail(`缺少 OG 图字体：assets/og-fonts/${font}`);
+  if (!inRoot(`src/assets/og-fonts/${font}`)) fail(`缺少 OG 图字体：src/assets/og-fonts/${font}`);
 }
 
 // 6. SITE_URL 在构建期固化进 canonical
@@ -180,7 +205,7 @@ try {
   fail(`dist/index.html 无法读取：${error.message}`);
 }
 notes.push(`站点地址：${siteUrl}`);
-notes.push(`文章：${posts.length} 篇`);
+notes.push(`文章：${contentFiles.length} 篇（内容集合 src/content/posts）`);
 
 if (problems.length) {
   console.error('[edgeone] 部署前自检未通过：');

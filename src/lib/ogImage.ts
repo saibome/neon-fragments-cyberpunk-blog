@@ -4,8 +4,9 @@ import QRCode from 'qrcode';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { SITE_URL } from './site';
-import { posts, postDescription } from './posts';
-import type { BlogPost } from '../../types';
+import { postDescription } from './post-utils';
+import { getPosts } from './posts';
+import type { BlogPost } from '../types';
 
 /**
  * OG 分享图在构建期生成 PNG。Satori 接受 React 元素形状的对象
@@ -27,11 +28,11 @@ const fontCache = new Map<string, Promise<ArrayBuffer>>();
 
 /**
  * 构建期字体分两处存放：
- * - public/fonts：浏览器实际加载的拉丁字体，会随 dist/ 一起部署；
- * - assets/og-fonts：仅生成 OG 图需要的中文字体（约 20MB），不进入 dist/。
+ * - src/assets/og-fonts：仅生成 OG 图需要的中文字体（约 20MB），不进入 dist/；
+ * - public/fonts：浏览器实际加载的拉丁字体，会随 dist/ 一起部署。
  * 设置 OG_FONT_DIR 时改为只从该目录读取全部字体。
  */
-const FONT_DIRECTORIES = ['assets/og-fonts', 'public/fonts'];
+const FONT_DIRECTORIES = ['src/assets/og-fonts', 'public/fonts'];
 
 function loadLocalFont(filename: string): Promise<ArrayBuffer> {
   const cached = fontCache.get(filename);
@@ -50,7 +51,7 @@ function loadLocalFont(filename: string): Promise<ArrayBuffer> {
         if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
       }
     }
-    throw new Error(`找不到 OG 图字体 ${filename}，请检查 assets/og-fonts 或设置 OG_FONT_DIR`);
+    throw new Error(`找不到 OG 图字体 ${filename}，请检查 src/assets/og-fonts 或设置 OG_FONT_DIR`);
   })();
 
   fontCache.set(filename, promise);
@@ -213,8 +214,9 @@ export async function generateOgImage(post: BlogPost): Promise<Uint8Array> {
   return new Uint8Array(new Resvg(svg).render().asPng());
 }
 
-/** 给静态端点用的路径参数：从固定 permalink 解析，避免时区漂移 */
-export function cardStaticPaths() {
+/** 给静态端点用的路径参数：从内容集合的固定 permalink 解析，避免时区漂移 */
+export async function cardStaticPaths() {
+  const posts = await getPosts();
   return posts.map(post => {
     const [, year, month, day, slug] = post.permalink.match(/^\/(\d{4})\/(\d{2})\/(\d{2})\/([^/]+)$/) ?? [];
     if (!year) throw new Error(`无法解析 permalink：${post.permalink}`);

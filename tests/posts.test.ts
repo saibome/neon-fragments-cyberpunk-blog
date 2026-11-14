@@ -1,15 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  normalizePost,
+  toBlogPost,
   sortPosts,
   getTagCounts,
   getPostDetail,
   postDescription,
   plainText
-} from '../src/lib/posts';
-import { DEFAULT_AUTHOR } from '../config';
-import type { BlogPost } from '../types';
+} from '../src/lib/post-utils';
+import { postSchema } from '../src/lib/post-schema';
+import { DEFAULT_AUTHOR } from '../src/consts';
+import type { BlogPost } from '../src/types';
 
 function makePost(overrides: Partial<BlogPost>): BlogPost {
   return {
@@ -32,20 +33,17 @@ const posts: BlogPost[] = [
   makePost({ id: '3', slug: 'c', title: 'Gamma', tags: ['life'], date: '2026-11-13T00:00:00.000Z' })
 ];
 
-test('normalizePost 补齐默认值，并按 UTC 补算缺失的 permalink', () => {
-  const post = normalizePost({ slug: 'hello', date: '2077-09-15T08:30:00.000Z' });
-  assert.ok(post);
-  assert.equal(post.title, '未命名文章');
+test('内容集合条目补齐默认字段，并按 UTC 生成 permalink', () => {
+  const post = toBlogPost({
+    id: 'hello',
+    data: postSchema.parse({ title: 'Hello', date: '2077-09-15T08:30:00.000Z' }),
+    body: '正文'
+  });
+  assert.equal(post.slug, 'hello', '未写 slug 时取集合条目 id');
   assert.equal(post.permalink, '/2077/09/15/hello');
   assert.deepEqual(post.author, DEFAULT_AUTHOR);
   assert.deepEqual(post.tags, []);
   assert.equal(post.isGlitch, false);
-});
-
-test('normalizePost 拒绝缺少 slug 或 date 的数据', () => {
-  assert.equal(normalizePost(null), null);
-  assert.equal(normalizePost({ slug: 'only-slug' }), null);
-  assert.equal(normalizePost({ date: '2026-11-14' }), null);
 });
 
 test('sortPosts 按日期倒序且不修改原数组', () => {

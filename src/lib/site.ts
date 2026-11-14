@@ -1,4 +1,4 @@
-import { normalizeSiteUrl } from '../../config';
+import { normalizeSiteUrl } from '../consts';
 
 /**
  * 静态站点没有运行时：SITE_URL 在构建期读取一次，

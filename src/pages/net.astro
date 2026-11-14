@@ -2,9 +2,9 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import PageHeader from '../components/PageHeader.astro';
 import CyberTagGrid from '../components/CyberTagGrid.astro';
-import { getTagCounts } from '../lib/posts';
+import { getPosts, getTagCounts } from '../lib/posts';
 
-const tags = getTagCounts();
+const tags = getTagCounts(await getPosts());
 ---
 
 <BaseLayout

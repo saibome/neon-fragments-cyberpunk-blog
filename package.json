@@ -16,9 +16,8 @@
     "url": "https://github.com/saibome/neon-fragments-cyberpunk-blog.git"
   },
   "scripts": {
-    "dev": "bun scripts/build-content.ts && bun run --bun astro dev --port 3000 --host 0.0.0.0",
-    "build:content": "bun scripts/build-content.ts",
-    "build": "bun scripts/build-content.ts && bun run --bun astro build && bun scripts/postbuild.mjs",
+    "dev": "bun run --bun astro dev --port 3000 --host 0.0.0.0",
+    "build": "bun run --bun astro build && bun scripts/postbuild.mjs",
     "build:edgeone": "bun run build && bun run check:edgeone",
     "check:edgeone": "bun scripts/check-edgeone.mjs",
     "typecheck": "bun run --bun astro check",
@@ -26,24 +25,20 @@
     "test": "bun test tests"
   },
   "dependencies": {
-    "@resvg/resvg-js": "^2.6.2",
-    "gray-matter": "^4.0.3",
-    "highlight.js": "^11.12.0",
-    "marked": "^18.2.0",
-    "marked-highlight": "^2.2.4",
-    "qrcode": "^1.5.4",
-    "satori": "^0.63.2"
-  },
-  "devDependencies": {
     "@astrojs/check": "^0.9.12",
+    "@resvg/resvg-js": "^2.6.2",
     "@tailwindcss/vite": "^4.3.5",
     "@types/node": "^26.6.6",
     "@types/qrcode": "^1.5.6",
     "@types/sanitize-html": "^2.16.2",
     "astro": "^7.4.12",
-    "fast-glob": "^3.3.3",
+    "highlight.js": "^11.12.0",
+    "marked": "^18.2.0",
+    "marked-highlight": "^2.2.4",
     "oxlint": "^1.93.0",
+    "qrcode": "^1.5.4",
     "sanitize-html": "^2.18.2",
+    "satori": "^0.63.2",
     "tailwindcss": "^4.3.5",
     "typescript": "^6.0.3",
     "vite": "^8.3.8",

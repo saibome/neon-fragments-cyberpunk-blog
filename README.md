@@ -1,6 +1,6 @@
 # 霓虹碎片 / Neon Fragments
 
-赛博朋克风格的**纯静态博客**，基于 **Astro 7 + bun**。没有 React、Hono、SSR 运行时、客户端路由，也没有对外 API 或 Serverless 函数：Markdown 在构建期编译成 JSON，Astro 把页面、RSS、sitemap 与 OG 分享图全部预渲染到 `dist/`；浏览器里的搜索、标签筛选、分页与分享弹窗由原生 JavaScript 直接操作预渲染的 DOM。
+赛博朋克风格的**纯静态博客**，基于 **Astro 7 内容集合 + bun**。没有 React、Hono、SSR 运行时、客户端路由，也没有对外 API 或 Serverless 函数：文章放在 `src/content/posts/`，由 Astro Content Layer 在构建期校验、缓存并交给页面、RSS、sitemap 与 OG 分享图预渲染到 `dist/`；浏览器里的搜索、标签筛选、分页与分享弹窗由原生 JavaScript 直接操作预渲染的 DOM。
 
 ## 运行环境
 
@@ -12,55 +12,56 @@
 | Astro | 7.4.12 | `astro.config.mjs` |
 | TypeScript | 6.0.3 | `@astrojs/check` 的 peer 只允许 5/6，7.x 暂不能升 |
 
-仓库只使用 bun：包管理、TypeScript 执行（`bun scripts/*.ts`）、测试（`bun test`）与 CI 全部由 bun 提供，`bun.lock` 是唯一锁文件。Astro CLI 通过 `bun run --bun` 强制在 bun 运行时执行（否则 `#!/usr/bin/env node` 会落到系统 Node；bun 模拟 Node 26.3.0，满足 Astro 7）。不要再引入 pnpm / npm / yarn 的锁文件。
+仓库只使用 bun：包管理、TypeScript 执行、测试（`bun test`）与 CI 全部由 bun 提供，`bun.lock` 是唯一锁文件。Astro CLI 通过 `bun run --bun` 强制在 bun 运行时执行（否则 `#!/usr/bin/env node` 会落到系统 Node；bun 模拟 Node 26.3.0，满足 Astro 7）。按 Astro 官方建议，构建期依赖统一放在 `package.json#dependencies`，不再拆分 `devDependencies`。不要再引入 pnpm / npm / yarn 的锁文件。
 
-**依赖基线（2026-11-15）**：全部依赖已对齐到 registry 最新版（astro 7.4.12、vite 8.3.8、tailwindcss 4.3.5、marked 18.2.0、zod 4.6.7、satori 0.63.2、oxlint 1.93.0、@types/node 26.6.6 等）。唯一例外是 TypeScript 停留在 6.x 最新的 6.0.3：`@astrojs/check@0.9.12` 的 peer 是 `^5 || ^6`，升级到 7.0.2 会让 `astro check` 失效。`tsx` 已移除，bun 原生执行 TypeScript。
+**依赖基线（2026-11-15）**：全部依赖已对齐到 registry 最新版（astro 7.4.12、vite 8.3.8、tailwindcss 4.3.5、marked 18.2.0、zod 4.6.7、satori 0.63.2、oxlint 1.93.0、@types/node 26.6.6 等）。唯一例外是 TypeScript 停留在 6.x 最新的 6.0.3：`@astrojs/check@0.9.12` 的 peer 是 `^5 || ^6`，升级到 7.0.2 会让 `astro check` 失效。
 
 EdgeOne Pages 只提供预装 Node（官方清单含 `24.5.0`），因此根目录**不提交 `.nvmrc`**：平台会优先按它切换版本，写非预装版本会在安装依赖前报 `Failed to switch to Node.js x`。云端仍保留 `nodeVersion: 24.5.0`，只用于 `npm i -g bun@1.4.4`；实际构建由 bun 运行时完成，不依赖平台 Node 版本。
 
 ```bash
 bun install
 cp .env.example .env.local   # 可选：设置 SITE_URL
-bun run dev                  # http://localhost:3000，启动前自动编译内容
-bun run build                # build:content → astro build → postbuild
+bun run dev                  # http://localhost:3000，内容集合自动热更新
+bun run build                # astro build → postbuild（无需单独编译内容）
 ```
 
-## 架构
+## 目录结构（Astro 官方规范）
+
+只有 `src/pages/` 是 Astro 的保留目录，其余按官方推荐约定组织；所有项目源码都收进 `src/`，仓库根目录只留配置与构建工具脚本。
 
 ```
-构建期  _posts/*.md
-          │ gray-matter + zod 校验
-          │ marked + highlight.js + sanitize-html 消毒
-          ▼
-        services/posts.json（含按 UTC 生成的 permalink）
-          │
-          ├── Astro 页面/组件 ──► dist/index.html、/net/、/gear/、文章页、404
-          ├── Astro 端点 ──────► rss.xml / sitemap.xml / robots.txt
-          │                       card/YYYY/MM/DD/slug.png（satori + resvg）
-          └── scripts/postbuild.mjs ► 平铺 .html 副本（clean URL 兜底）
-运行期  EdgeOne Pages 静态托管（纯文件，无函数、无常驻服务）
-          └─ 浏览器：原生 JS 负责搜索、标签、分页、分享弹窗、代码块工具栏
+├── astro.config.mjs          # Astro 配置（静态输出、Tailwind 插件、站点地址）
+├── edgeone.json              # EdgeOne Pages 构建 / 缓存头 / clean URL 配置
+├── package.json  bun.lock  tsconfig.json
+├── public/                   # 不参与构建、原样复制的静态资源
+│   ├── avatar.svg  cover.svg
+│   └── fonts/                # 浏览器实际加载的拉丁字体（约 1.1MB）
+├── src/
+│   ├── assets/og-fonts/      # 仅构建期给 OG 图用的中文字体（约 20MB，不进 dist）
+│   ├── components/           # 可复用 .astro 组件
+│   ├── content/posts/*.md    # 内容集合的文章原文
+│   ├── content.config.ts     # 内容集合定义（glob loader + zod schema）
+│   ├── consts.ts             # 站点常量、默认作者、导航项
+│   ├── data/icons.json       # 从 lucide（ISC）提取的静态 SVG
+│   ├── layouts/              # BaseLayout.astro，统一 head / 元信息
+│   ├── lib/                  # 构建期纯逻辑
+│   │   ├── feeds.ts  markdown.ts  ogImage.ts  permalink.ts
+│   │   ├── post-schema.ts  post-utils.ts  posts.ts  site.ts
+│   ├── pages/                # 文件路由与静态端点
+│   ├── scripts/              # 浏览器端原生 JavaScript
+│   ├── styles/global.css     # Tailwind 4 主题与赛博朋克样式
+│   └── types.ts              # 共享类型
+├── scripts/                  # 非 Astro 源码的构建工具（Node/bun 脚本）
+│   ├── check-edgeone.mjs  dist-pages.mjs  env.mjs  postbuild.mjs
+├── tests/                    # bun test 单元测试（直接执行 TypeScript）
+└── .github/                  # CI 与协作说明
 ```
 
-### 几处关键设计
+`tsconfig.json` 提供 `@/*` → `src/*` 别名。之前的 `_posts/`、`services/posts.json`、根目录 `config.ts` / `constants.ts` / `types.ts` / `lib/` 已全部并入 `src/`，不再保留。
 
-- **永久链接**：`permalink` 在构建期按 UTC 生成一次，页面、sitemap、RSS、OG 图与 canonical 全部只读 `post.permalink`。日期段写错的链接不再有 301 兜底，静态托管会直接返回 404。
-- **站点地址**：`scripts/env.mjs` 统一解析 `SITE_URL`（shell 环境变量优先，其次 `.env.local`），Astro 配置与页面渲染共用；换域名需要重新构建。
-- **内容安全**：frontmatter 由 zod 校验，类型不对直接让构建失败；Markdown 产出的 HTML 经 sanitize-html 白名单消毒后才用 `set:html` 注入页面。
-- **零框架交互**：搜索 / 标签 / 分页直接对预渲染的卡片做显隐，**不发起任何网络请求**，无 JS 时全部文章可见；分享弹窗（原生 `<dialog>`）只提供复制链接，代码块工具栏是原生 JS。图标是构建期提取的静态 SVG，不引入图标库。
-- **OG 分享图**：satori 接受 `{ type, props }` 形状的节点对象，因此用 `src/lib/ogImage.ts` 的 `h()` 构造节点树，**不需要 JSX 或 React**；resvg 输出 PNG。
-- **字体分目录**：浏览器字体与构建期字体分开存放，避免 20MB 中文字体被当成静态资源发布。
+## 写文章（内容集合）
 
-| 目录 | 内容 | 是否进入 `dist/` |
-| :--- | :--- | :--- |
-| `public/fonts/` | Rajdhani 500/600/700、Share Tech Mono 400（约 1.1MB） | 是 |
-| `assets/og-fonts/` | Noto Sans SC 400/700（约 20MB，仅生成 OG 图时用） | **否** |
-
-`src/lib/ogImage.ts` 会依次在 `assets/og-fonts`、`public/fonts` 中查找字体；设置 `OG_FONT_DIR` 时改为只从该目录读取，此时该目录需包含全部 4 个字体文件。
-
-## 写文章
-
-在 `_posts/` 新建 `.md`（该目录已纳入版本库，`services/posts.json` 是构建产物、不入库）：
+**在 `src/content/posts/` 新建一个 `.md` 文件即可，不需要注册路由、不需要手动编译 JSON。** `src/content.config.ts` 用 `glob()` loader 扫描该目录，`postSchema` 校验 frontmatter，Astro 在构建期把条目写进 Content Layer 的 data store；所有页面通过 `src/lib/posts.ts` 的 `getPosts()`（`getCollection('posts')`）读取。
 
 ```yaml
 ---
@@ -77,9 +78,9 @@ isGlitch: true
 
 | 字段 | 类型 | 说明 | 默认 |
 | :--- | :--- | :--- | :--- |
-| `title` | `string` | 标题 | `未命名文章` |
-| `slug` | `string` | URL slug，只允许字母、数字、`-`、`_`，全站唯一 | 文件名 |
-| `date` | `string \| Date` | 发布日期，按 UTC 生成 `/YYYY/MM/DD/slug` | 构建时间 |
+| `title` | `string` | 标题，**必填**（去掉首尾空白后不能为空） | — |
+| `date` | `string \| Date` | 发布日期，**必填**；按 UTC 生成 `/YYYY/MM/DD/slug` | — |
+| `slug` | `string` | URL slug，只允许字母、数字、`-`、`_`，全站唯一 | 集合条目 id（文件名） |
 | `description` | `string` | 列表摘要与 SEO 描述 | 正文前 200 字 |
 | `author` | `string \| object` | 作者名或档案对象；对象会与默认档案合并 | 站点默认作者 |
 | `tags` | `string[]` | 标签数组 | `[]` |
@@ -88,10 +89,48 @@ isGlitch: true
 | `isGlitch` | `boolean` | 文章卡片的故障特效 | `false` |
 | `id` | `string` | 唯一标识 | slug |
 
+`date` 设为必填是因为永久链接依赖它：缺省值用「构建时间」会让每次构建产出不同 URL。`getPosts()` 会检查重复 slug / permalink 并让构建直接失败。
+
 ```bash
-bun run build:content   # 只重编译内容
-bun run build           # 重新生成页面与分享图
+bun run dev       # 新增/修改 .md 后集合自动同步
+bun run build     # 生成页面、订阅源、sitemap 与分享图
 ```
+
+## 架构
+
+```
+构建期  src/content/posts/*.md
+          │ src/content.config.ts：glob() loader + zod frontmatter 校验
+          ▼
+        Astro Content Layer（data store：类型安全、校验、缓存）
+          │ getPosts() → getCollection('posts') → BlogPost[]
+          │   ├─ src/lib/markdown.ts：marked + highlight.js + sanitize-html
+          │   └─ src/lib/permalink.ts：UTC 固定链接
+          ├── 页面 getStaticPaths() ─► 首页、/net、/gear、文章页、404
+          ├── 静态端点 ────────────► rss.xml / sitemap.xml / robots.txt
+          │                          card/YYYY/MM/DD/slug.png（satori + resvg）
+          └── scripts/postbuild.mjs ► 平铺 .html 副本（clean URL 兜底）
+运行期  EdgeOne Pages 静态托管（纯文件，无函数、无常驻服务）
+          └─ 浏览器：原生 JS 负责搜索、标签、分页、分享弹窗、代码块工具栏
+```
+
+### 几处关键设计
+
+- **内容集合是唯一数据源**：文章不再先编译成 `services/posts.json`，构建脚本也不维护中间清单。`scripts/postbuild.mjs` 与部署自检通过 `scripts/dist-pages.mjs` 直接扫描 `dist/YYYY/MM/DD/slug/index.html`。
+- **正文渲染仍走自建管线**：集合负责内容组织、frontmatter 校验、类型与缓存；`entry.body` 交给 `src/lib/markdown.ts` 渲染，以保留 sanitize-html 的标签/属性白名单消毒和现有 highlight.js 视觉。若改用 Astro 的 `render(entry)`，需要另接 `rehype-sanitize` 并重做代码高亮样式。
+- **永久链接**：`permalink` 在构建期按 UTC 生成一次，页面、sitemap、RSS、OG 图与 canonical 全部只读 `post.permalink`。日期段写错的链接不再有 301 兜底，静态托管会直接返回 404。
+- **站点地址**：`scripts/env.mjs` 统一解析 `SITE_URL`（shell 环境变量优先，其次 `.env.local`），Astro 配置与页面渲染共用；换域名需要重新构建。
+- **内容安全**：frontmatter 由 zod 校验，类型不对直接让构建失败；Markdown 产出的 HTML 经白名单消毒后才用 `set:html` 注入页面。
+- **零框架交互**：搜索 / 标签 / 分页直接对预渲染的卡片做显隐，**不发起任何网络请求**，无 JS 时全部文章可见；分享弹窗（原生 `<dialog>`）只提供复制链接，代码块工具栏是原生 JS。图标是构建期提取的静态 SVG，不引入图标库。
+- **OG 分享图**：satori 接受 `{ type, props }` 形状的节点对象，因此用 `src/lib/ogImage.ts` 的 `h()` 构造节点树，**不需要 JSX 或 React**；resvg 输出 PNG。
+- **字体分目录**：浏览器字体与构建期字体分开存放，避免 20MB 中文字体被当成静态资源发布。
+
+| 目录 | 内容 | 是否进入 `dist/` |
+| :--- | :--- | :--- |
+| `public/fonts/` | Rajdhani 500/600/700、Share Tech Mono 400（约 1.1MB） | 是 |
+| `src/assets/og-fonts/` | Noto Sans SC 400/700（约 20MB，仅生成 OG 图时用） | **否** |
+
+`src/lib/ogImage.ts` 会依次在 `src/assets/og-fonts`、`public/fonts` 中查找字体；设置 `OG_FONT_DIR` 时改为只从该目录读取，此时该目录需包含全部 4 个字体文件。
 
 ## 部署
 
@@ -123,10 +162,10 @@ bun run build           # 重新生成页面与分享图
 
 ```bash
 bun run build:edgeone   # 构建并执行 scripts/check-edgeone.mjs
-bun run check:edgeone   # 只自检：产物完整性、配置约束、精简后的功能没有回退
+bun run check:edgeone   # 只自检：内容集合、产物完整性、配置约束、旧结构没有回退
 ```
 
-`check:edgeone` 会卡住易复发的问题：`nodeVersion` 不是预装版本、`engines` 挡住 24.5.0、误提交 `.nvmrc`、`bun.lock` 缺失或安装/构建命令回退到 pnpm、被删除的 API / 函数 / 自托管文件重新出现、20MB 构建期字体重新进入 `dist/fonts`。CI 也会在每次 push 后执行它。
+`check:edgeone` 会卡住易复发的问题：`nodeVersion` 不是预装版本、`engines` 挡住 24.5.0、误提交 `.nvmrc`、`bun.lock` 缺失或安装/构建命令回退到 pnpm、`src/content.config.ts` 缺失或写错、文章数与 dist 文章页不一致、旧目录（`_posts/`、`services/posts.json`、根目录散落源码）回退、20MB 构建期字体重新进入 `dist/fonts`。CI 也会在每次 push 后执行它。
 
 > 重新部署后若日志仍出现 `Failed to switch to Node.js x`：确认推送后的仓库根目录已无 `.nvmrc`，把「项目设置 → Node.js 版本」确认为 `24.5.0`，并关闭「使用构建缓存」做一次无缓存部署（旧缓存可能残留上一版的 `.nvmrc`）。配置改动只在下一次部署生效，保存设置本身不会触发构建。
 
@@ -137,7 +176,6 @@ bun run check:edgeone   # 只自检：产物完整性、配置约束、精简后
 | 变量 | 用途 | 默认 | 生效阶段 |
 | :--- | :--- | :--- | :--- |
 | `SITE_URL` | canonical / sitemap / RSS / OG 图的公开地址 | `https://saibo.me` | 构建期 |
-| `CONTENT_DIR` | 内容源目录 | `_posts` | 构建期 |
 | `OG_FONT_DIR` | OG 图字体目录，留空按上表自动探测 | 留空 | 构建期 |
 
 `.env.local` 已被 git 忽略，`.env.example` 是可提交的模板。
@@ -145,35 +183,18 @@ bun run check:edgeone   # 只自检：产物完整性、配置约束、精简后
 ## 质量卡口
 
 ```bash
-bun run typecheck       # astro check（bun 运行时）：检查 .astro / .ts
+bun run typecheck       # astro check（bun 运行时）：检查 .astro / .ts / 内容集合类型
 bun run lint            # oxlint（忽略 .astro 生成的类型缓存）
-bun run test            # bun test：内容校验、文章数据、永久链接、EdgeOne 配置
+bun run test            # bun test：集合 schema、文章归一化、消毒、目录规范、EdgeOne 配置
 bun run build           # 完整静态构建
 bun run check:edgeone   # EdgeOne 部署前自检（CI 亦会执行）
 ```
-
-## 目录
-
-- `_posts/` — Markdown 原文（入库）
-- `src/pages/` — Astro 页面与静态端点（首页、/net、/gear、文章页、404、RSS、sitemap、robots、OG PNG）
-- `src/layouts/` `src/components/` — Astro 布局与 UI 组件
-- `src/scripts/` — 浏览器端原生 JavaScript
-- `src/lib/` — 文章数据、订阅源、OG 图（构建期）
-- `src/data/icons.json` — 从 lucide（ISC License）提取的静态 SVG 图标
-- `src/styles/global.css` — Tailwind 4 主题与赛博朋克样式
-- `scripts/` — bun 脚本：内容编译、环境变量、构建后处理、EdgeOne 部署自检
-- `assets/og-fonts/` — 仅构建期使用的中文字体（不部署）
-- `public/fonts/` — 浏览器加载的拉丁字体（随 `dist/` 部署）
-- `edgeone.json` — EdgeOne Pages 项目配置（构建命令、输出目录、缓存头、clean URL 规则）
-- `bun.lock` — 唯一锁文件，CI / EdgeOne 均按 frozen 模式安装
-- `lib/` `config.ts` `types.ts` — 前后端共用的纯函数与类型
-- `tests/` — 单元测试（bun test 直接执行 TypeScript）
-- `dist/` — 静态站点产物
 
 ## 取舍
 
 - 首页把所有文章卡片预渲染进 HTML（利于 SEO），搜索 / 分页 / 标签在客户端完成；文章特别多时可改为静态分页路由。
 - 站点没有运行时 SSR，`SITE_URL` 在构建期固化；跨域名复用同一份构建产物不适用。
+- 内容集合负责内容组织与校验，但正文仍由 `src/lib/markdown.ts` 渲染，以保留白名单消毒与既有高亮样式；未使用 Astro 的 `render(entry)`。
 - 没有对外 API、动态查询、Cloud Functions 与错误日期 301：站点前端从不请求接口，静态托管足够；需要这些能力时应作为独立服务接入，而不是重新塞回仓库。
 - 只保留 RSS 一种订阅格式；Atom 与 `/data`、`/api`、`/serve.mjs`、Docker 打包等模板遗留功能已移除。
-- Astro 官方不支持把 bun 作为 CLI 运行时，`bun run --bun` 是绕过 shebang 的官方 workaround；TypeScript 因此必须停留在 6.x，`@astrojs/check` 尚未适配 7.x。
+- Astro CLI 的 shebang 会落到系统 Node，因此用 `bun run --bun` 强制走 bun 运行时；TypeScript 必须停留在 6.x，`@astrojs/check` 尚未适配 7.x。

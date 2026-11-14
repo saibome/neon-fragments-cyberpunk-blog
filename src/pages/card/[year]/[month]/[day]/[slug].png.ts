@@ -1,5 +1,5 @@
 import { cardStaticPaths, generateOgImage } from '../../../../../lib/ogImage';
-import type { BlogPost } from '../../../../../../types';
+import type { BlogPost } from '../../../../../types';
 
 export const getStaticPaths = cardStaticPaths;
 

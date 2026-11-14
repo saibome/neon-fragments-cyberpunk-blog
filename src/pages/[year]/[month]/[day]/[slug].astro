@@ -5,33 +5,37 @@ import CyberDate from '../../../../components/CyberDate.astro';
 import GlitchText from '../../../../components/GlitchText.astro';
 import Icon from '../../../../components/Icon.astro';
 import ShareModal from '../../../../components/ShareModal.astro';
-import { DEFAULT_COVER } from '../../../../../config';
-import { cardUrl } from '../../../../../lib/permalink';
+import { DEFAULT_COVER } from '../../../../consts';
+import { cardUrl } from '../../../../lib/permalink';
 import { SITE_URL } from '../../../../lib/site';
-import { posts, getPostDetail, plainText } from '../../../../lib/posts';
-import type { BlogPost } from '../../../../../types';
+import { getPosts, getPostDetail, plainText } from '../../../../lib/posts';
+import type { BlogPost, PostRef } from '../../../../types';
 
-export function getStaticPaths() {
+export async function getStaticPaths() {
+  const posts = await getPosts();
   return posts.map(post => {
     const parts = post.permalink.match(/^\/(\d{4})\/(\d{2})\/(\d{2})\/([^/]+)$/);
     if (!parts) throw new Error(`无法解析 permalink：${post.permalink}`);
     const [, year, month, day, slug] = parts;
-    return { params: { year, month, day, slug }, props: { post } };
+    const detail = getPostDetail(post.slug, posts);
+    return {
+      params: { year, month, day, slug },
+      props: { post, olderPost: detail?.previous, newerPost: detail?.next }
+    };
   });
 }
 
 interface Props {
   post: BlogPost;
+  olderPost?: PostRef;
+  newerPost?: PostRef;
 }
 
-const { post } = Astro.props;
+const { post, olderPost, newerPost } = Astro.props;
 const currentUrl = `${SITE_URL}${post.permalink}`;
 const displayImage = post.image || DEFAULT_COVER;
 const ogImage = `${SITE_URL}${cardUrl(post.permalink)}`;
 const description = post.description || `${plainText(post.content).substring(0, 150)}……`;
-const detail = getPostDetail(post.slug);
-const olderPost = detail?.previous;
-const newerPost = detail?.next;
 ---
 
 <BaseLayout

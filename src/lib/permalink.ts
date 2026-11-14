@@ -1,7 +1,6 @@
 /**
- * 文章永久链接只在构建期按 UTC 生成一次，之后所有端（SSR、浏览器、
- * sitemap、RSS、分享卡片）都直接读取 post.permalink，避免本地时区差异
- * 导致同一篇文章出现不同 URL。
+ * 文章永久链接只在构建期按 UTC 生成一次，之后所有端（页面、sitemap、RSS、
+ * 分享卡片）都直接读取 post.permalink，避免本地时区差异导致同一篇文章出现不同 URL。
  */
 export function makePermalink(dateIso: string, slug: string): string {
   const date = new Date(dateIso);
