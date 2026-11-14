@@ -1,4 +1,4 @@
-import React, { Suspense, useState } from 'react';
+import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router';
 import { Helmet } from 'react-helmet-async';
 import Navbar from './Navbar';
@@ -7,7 +7,6 @@ import { NAV_ITEMS } from '../constants';
 import { NavItem } from '../types';
 import { useProfile } from '../contexts/ProfileContext';
 import { useData } from '../contexts/DataContext';
-import { BASE_URL } from '../constants';
 
 const PAGE_META: Record<string, { title: string; description: string }> = {
   '/': {
@@ -30,9 +29,9 @@ const PAGE_META: Record<string, { title: string; description: string }> = {
 
 const Layout: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const { initialList } = useData();
+  const { initialList, siteUrl } = useData();
   const [stats, setStats] = useState({ postCount: initialList?.total || 0, tagCount: 0 });
-  const { user } = useProfile();
+  const user = useProfile();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -40,7 +39,7 @@ const Layout: React.FC = () => {
     const fetchStats = async () => {
       try {
         const [postsRes, tagsRes] = await Promise.all([
-          initialList ? Promise.resolve(null) : fetch('/api/posts?limit=1'),
+          initialList ? Promise.resolve(null) : fetch(`/api/posts?limit=1`),
           fetch('/api/tags')
         ]);
 
@@ -59,10 +58,9 @@ const Layout: React.FC = () => {
     fetchStats();
   }, [initialList]);
 
-  // Determine active nav item based on path
   const activeNav = NAV_ITEMS.find(item => item.path === location.pathname)?.id || NavItem.HOME;
   const meta = PAGE_META[location.pathname] || PAGE_META['/'];
-  const canonicalUrl = `${BASE_URL}${location.pathname}`;
+  const canonicalUrl = `${siteUrl}${location.pathname}`;
 
   const handleNav = (item: NavItem) => {
     const navItem = NAV_ITEMS.find(n => n.id === item);
@@ -80,7 +78,6 @@ const Layout: React.FC = () => {
         onNavigate={handleNav}
       />
 
-      {/* Decorative Sidebar Elements */}
       <div className="mt-6 hidden lg:block">
         <div className="border border-gray-800 p-4 bg-black/40">
           <h4 className="text-cyber-red font-mono text-xs font-bold mb-2">系统状态</h4>
@@ -116,7 +113,7 @@ const Layout: React.FC = () => {
         <title>{meta.title}</title>
         <meta name="description" content={meta.description} />
         <link rel="canonical" href={canonicalUrl} />
-        <link rel="alternate" type="application/rss+xml" title="霓虹碎片 RSS" href={`${BASE_URL}/rss.xml`} />
+        <link rel="alternate" type="application/rss+xml" title="霓虹碎片 RSS" href={`${siteUrl}/rss.xml`} />
         <meta property="og:title" content={meta.title} />
         <meta property="og:description" content={meta.description} />
         <meta property="og:type" content="website" />
@@ -125,71 +122,62 @@ const Layout: React.FC = () => {
         <meta property="og:locale" content="zh_CN" />
       </Helmet>
       <div className="min-h-screen flex flex-col font-sans text-gray-100 selection:bg-cyber-yellow selection:text-black">
-      <Navbar
-        activeItem={activeNav}
-        onNavigate={handleNav}
-        onToggleProfile={() => setIsProfileOpen(!isProfileOpen)}
-        isProfileOpen={isProfileOpen}
-        desktopSidebar={sidebarContent}
-      />
+        <Navbar
+          activeItem={activeNav}
+          onNavigate={handleNav}
+          onToggleProfile={() => setIsProfileOpen(!isProfileOpen)}
+          isProfileOpen={isProfileOpen}
+          desktopSidebar={sidebarContent}
+        />
 
-      <main className="flex-grow container mx-auto max-w-7xl w-full px-0 sm:px-6 lg:px-8 py-2 md:py-6 mt-16">
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
+        <main className="flex-grow container mx-auto max-w-7xl w-full px-0 sm:px-6 lg:px-8 py-2 md:py-6 mt-16">
+          <div className="flex flex-col lg:flex-row gap-6 items-start">
 
-          {/* Sidebar - Drawer on Mobile */}
-          <aside className={`
-            fixed inset-0 z-40 bg-black pt-24 px-6 pb-6 overflow-y-auto transition-transform duration-300 ease-in-out lg:hidden
-            ${isProfileOpen ? 'translate-x-0' : '-translate-x-full'}
-          `}>
-             <ProfileSidebar
+            <aside className={`
+              fixed inset-0 z-40 bg-black pt-24 px-6 pb-6 overflow-y-auto transition-transform duration-300 ease-in-out lg:hidden
+              ${isProfileOpen ? 'translate-x-0' : '-translate-x-full'}
+            `}>
+              <ProfileSidebar
                 user={user}
                 activeItem={activeNav}
                 onNavigate={handleNav}
-             />
-          </aside>
+              />
+            </aside>
 
-          {/* Placeholder for Desktop Sidebar */}
-          <div className="hidden lg:block w-80 flex-shrink-0"></div>
+            <div className="hidden lg:block w-80 flex-shrink-0"></div>
 
-          {/* Overlay for mobile when open */}
-
-          {/* Overlay for mobile when open */}
-          {isProfileOpen && (
-            <div
+            {isProfileOpen && (
+              <div
                 className="fixed inset-0 bg-black/50 z-30 lg:hidden backdrop-blur-sm"
                 onClick={() => setIsProfileOpen(false)}
-            />
-          )}
+              />
+            )}
 
-          {/* Main Content Area */}
-          <section className="flex-grow min-w-0">
-            <Suspense fallback={<div className="py-20 text-center text-cyber-yellow font-mono" role="status">正在接入数据流……</div>}>
+            <section className="flex-grow min-w-0">
               <Outlet />
-            </Suspense>
-          </section>
+            </section>
 
-        </div>
-      </main>
+          </div>
+        </main>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-800 bg-black py-8 mt-12">
-        <div className="max-w-7xl mx-auto px-4 text-center">
-           <p className="text-gray-600 font-mono text-xs">
-             © 2077 SAIBO.ME // 保留所有权利 
-           </p>
-           <div className="mt-2 text-[10px] text-gray-700 uppercase tracking-[0.2em]">
-            <a
-              href="https://beian.miit.gov.cn/"
-              target="_blank"
-              rel="nofollow noopener noreferrer"
-              className="hover:text-gray-500 transition-colors"
-            >
-              粤ICP备2026121562号-2
-            </a>
-            {' '}// 安全连接
-           </div>
-        </div>
-      </footer>
+        <footer className="border-t border-gray-800 bg-black py-8 mt-12">
+          <div className="max-w-7xl mx-auto px-4 text-center">
+            <p className="text-gray-600 font-mono text-xs">
+              © 2077 SAIBO.ME // 保留所有权利
+            </p>
+            <div className="mt-2 text-[10px] text-gray-700 uppercase tracking-[0.2em]">
+              <a
+                href="https://beian.miit.gov.cn/"
+                target="_blank"
+                rel="nofollow noopener noreferrer"
+                className="hover:text-gray-500 transition-colors"
+              >
+                粤ICP备2026121562号-2
+              </a>
+              {' '}// 安全连接
+            </div>
+          </div>
+        </footer>
       </div>
     </>
   );

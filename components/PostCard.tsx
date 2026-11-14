@@ -1,33 +1,20 @@
 import React from 'react';
 import { Link } from 'react-router';
-import { BlogPost } from '../types';
+import { DEFAULT_COVER } from '../config';
+import type { BlogPost } from '../types';
 import { Clock, Hash, ChevronRight, AlertTriangle } from 'lucide-react';
 import CyberDate from './CyberDate';
 
-interface PostCardProps {
-  post: BlogPost;
-}
-
-const PostCard: React.FC<PostCardProps> = ({ post }) => {
-  // Parse date for permalink: 2077-08-12 04:20
-  const dateObj = new Date(post.date);
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getDate()).padStart(2, '0');
-  const permalink = `/${year}/${month}/${day}/${post.slug}`;
-  const displayImage = post.image || "https://picsum.photos/1200/400";
+const PostCard: React.FC<{ post: BlogPost }> = ({ post }) => {
+  const displayImage = post.image || DEFAULT_COVER;
 
   return (
-    <div
-      className="block group relative bg-cyber-dark border-l-4 border-cyber-gray hover:border-cyber-yellow transition-all duration-300 p-6 mb-4 overflow-hidden hover:bg-gray-900"
-    >
-      {/* Background Image */}
+    <div className="block group relative bg-cyber-dark border-l-4 border-cyber-gray hover:border-cyber-yellow transition-all duration-300 p-6 mb-4 overflow-hidden hover:bg-gray-900">
       <div className="absolute inset-0 z-0">
-         <div className="absolute inset-0 bg-cover bg-center opacity-20 group-hover:opacity-30 transition-opacity duration-300 mix-blend-overlay grayscale group-hover:grayscale-0" style={{ backgroundImage: `url('${displayImage}')` }}></div>
-         <div className="absolute inset-0 bg-gradient-to-r from-cyber-dark via-cyber-dark/90 to-cyber-dark/80"></div>
+        <div className="absolute inset-0 bg-cover bg-center opacity-20 group-hover:opacity-30 transition-opacity duration-300 mix-blend-overlay grayscale group-hover:grayscale-0" style={{ backgroundImage: `url('${displayImage}')` }}></div>
+        <div className="absolute inset-0 bg-gradient-to-r from-cyber-dark via-cyber-dark/90 to-cyber-dark/80"></div>
       </div>
 
-      {/* Background hover effect */}
       <div className="absolute inset-0 bg-gradient-to-r from-cyber-yellow/0 to-cyber-yellow/0 group-hover:from-cyber-yellow/5 group-hover:to-transparent transition-all duration-500 pointer-events-none z-0"></div>
 
       <div className="relative z-10">
@@ -41,13 +28,13 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
         </div>
 
         <h3 className="text-xl md:text-2xl font-display font-bold text-white group-hover:text-cyber-yellow mb-3 transition-colors uppercase tracking-tight">
-           <Link to={permalink} className="before:absolute before:inset-0 focus:outline-none">
-             {post.title}
-           </Link>
+          <Link to={post.permalink} className="before:absolute before:inset-0 focus:outline-none">
+            {post.title}
+          </Link>
         </h3>
 
         <p className="text-gray-400 line-clamp-2 font-sans mb-4 text-sm">
-          {post.description || post.content.replace(/<[^>]*>?/gm, '')}
+          {post.description || post.content.replace(/<[^>]*>?/gm, '') || '暂无摘要'}
         </p>
 
         <div className="flex justify-between items-end">
@@ -60,8 +47,8 @@ const PostCard: React.FC<PostCardProps> = ({ post }) => {
             ))}
           </div>
 
-          <Link to={permalink} className="text-cyber-yellow opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-10px] group-hover:translate-x-0 flex items-center text-sm font-bold uppercase font-mono relative z-20">
-            阅读全文 <ChevronRight className="w-4 h-4 ml-1" />
+          <Link to={post.permalink} className="text-cyber-yellow opacity-0 group-hover:opacity-100 transition-all transform translate-x-[-10px] group-hover:translate-x-0 flex items-center text-sm font-bold uppercase font-mono relative z-20">
+            阅读全文 <ChevronRight className="w-4 h-4" />
           </Link>
         </div>
       </div>

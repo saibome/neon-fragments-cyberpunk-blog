@@ -1,19 +1,22 @@
-FROM node:20-alpine AS build
+FROM node:26-slim AS build
 
 WORKDIR /app
-RUN corepack enable
+RUN npm install -g pnpm@12.18.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN pnpm build
+RUN pnpm typecheck && pnpm test && pnpm build
 
-FROM node:20-alpine AS runtime
+FROM node:26-slim AS runtime
 
 WORKDIR /app
 ENV NODE_ENV=production
-RUN corepack enable
+ENV SITE_URL=https://saibo.me
+ENV PORT=3000
+
+RUN npm install -g pnpm@12.18.0
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 RUN pnpm install --prod --frozen-lockfile

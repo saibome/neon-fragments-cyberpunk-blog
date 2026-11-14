@@ -69,7 +69,7 @@ const CyberMenuIcon = ({ className, isOpen }: { className?: string, isOpen?: boo
   </svg>
 );
 
-const Navbar: React.FC<NavbarProps> = ({ activeItem, onNavigate, onToggleProfile, isProfileOpen, desktopSidebar }) => {
+const Navbar: React.FC<NavbarProps> = ({ activeItem, onToggleProfile, isProfileOpen, desktopSidebar }) => {
   return (
     <nav className="fixed top-0 z-50 w-full bg-cyber-black/90 backdrop-blur-sm border-b border-cyber-gray/50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">

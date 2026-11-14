@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { UserProfile, NavItem } from '../types';
-import { Shield, Cpu, Wifi, Battery } from 'lucide-react';
+import { Shield, Cpu, Wifi } from 'lucide-react';
 import * as d3 from 'd3';
 import { NAV_ITEMS } from '../constants';
 import GlitchText from './GlitchText';
@@ -23,7 +23,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, activeItem, onNav
       const width = 200;
       const height = 60;
       const n = 40;
-      const data = new Array(n).fill(0).map(() => Math.random());
+      const data = Array.from({ length: n }, () => Math.random());
 
       const x = d3.scaleLinear().domain([0, n - 1]).range([0, width]);
       const y = d3.scaleLinear().domain([0, 1]).range([height, 0]);
@@ -61,7 +61,7 @@ const ProfileSidebar: React.FC<ProfileSidebarProps> = ({ user, activeItem, onNav
       <div className="relative z-10">
         <div className="flex items-center space-x-4 mb-6">
           <div className="w-16 h-16 bg-cyber-yellow clip-both flex items-center justify-center overflow-hidden border-2 border-white">
-             <img src="https://picsum.photos/200/200" alt="头像" className="w-full h-full object-cover mix-blend-multiply grayscale contrast-125" />
+             <img src="/avatar.svg" alt="头像" className="w-full h-full object-cover mix-blend-multiply grayscale contrast-125" />
           </div>
           <div>
             <h2 className="text-2xl font-display font-bold text-white leading-none">{user.name}</h2>

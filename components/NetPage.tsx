@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import CyberTagGrid from './CyberTagGrid';
 import GlitchText from './GlitchText';
-import { useProfile } from '../contexts/ProfileContext';
 
 interface Tag {
   tag: string;
@@ -11,11 +10,6 @@ interface Tag {
 const NetPage: React.FC = () => {
   const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
-  const { resetProfile } = useProfile();
-
-  useEffect(() => {
-    resetProfile();
-  }, [resetProfile]);
 
   useEffect(() => {
     const fetchTags = async () => {

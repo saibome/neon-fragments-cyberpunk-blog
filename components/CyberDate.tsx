@@ -5,16 +5,17 @@ interface CyberDateProps {
   className?: string;
 }
 
+/** 与永久链接保持同一套 UTC 日期，避免访客时区改变显示结果 */
 const CyberDate: React.FC<CyberDateProps> = ({ date, className = '' }) => {
   const dateObj = new Date(date);
-  
-  if (isNaN(dateObj.getTime())) {
+
+  if (Number.isNaN(dateObj.getTime())) {
     return <span className={className}>{date}</span>;
   }
 
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getDate()).padStart(2, '0');
+  const year = dateObj.getUTCFullYear();
+  const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getUTCDate()).padStart(2, '0');
   const formattedDate = `${year}年${month}月${day}日`;
 
   return (

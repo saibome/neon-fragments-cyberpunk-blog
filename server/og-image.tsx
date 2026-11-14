@@ -1,10 +1,11 @@
+import React from 'react';
 import satori from 'satori';
 import { Resvg } from '@resvg/resvg-js';
-import { BlogPost } from '../types';
-import React from 'react';
 import QRCode from 'qrcode';
 import fs from 'node:fs/promises';
 import path from 'node:path';
+import { SITE_URL } from './site';
+import type { BlogPost } from '../types';
 
 const fontCache = new Map<string, Promise<ArrayBuffer>>();
 
@@ -12,8 +13,8 @@ function loadLocalFont(filename: string): Promise<ArrayBuffer> {
   const cached = fontCache.get(filename);
   if (cached) return cached;
 
-  const fontDirectory = import.meta.env.PROD ? 'dist/client/fonts' : 'public/fonts';
-  const promise = fs.readFile(path.resolve(fontDirectory, filename)).then(buffer =>
+  const fontDirectory = path.resolve(import.meta.env.PROD ? 'dist/client/fonts' : 'public/fonts');
+  const promise = fs.readFile(path.join(fontDirectory, filename)).then(buffer =>
     buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer
   );
   fontCache.set(filename, promise);
@@ -21,7 +22,7 @@ function loadLocalFont(filename: string): Promise<ArrayBuffer> {
   return promise;
 }
 
-export async function generateOgImage(post: BlogPost) {
+export async function generateOgImage(post: BlogPost): Promise<Buffer> {
   const [rajdhaniBold, shareTechMono, notoSansSC, notoSansSCBold] = await Promise.all([
     loadLocalFont('rajdhani-700.ttf'),
     loadLocalFont('share-tech-mono-400.ttf'),
@@ -29,7 +30,6 @@ export async function generateOgImage(post: BlogPost) {
     loadLocalFont('noto-sans-sc-700.ttf')
   ]);
 
-  // Cyberpunk colors
   const colors = {
     yellow: '#fcee0a',
     cyan: '#00f0ff',
@@ -40,13 +40,12 @@ export async function generateOgImage(post: BlogPost) {
   };
 
   const dateObj = new Date(post.date);
-  const year = dateObj.getFullYear();
-  const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-  const day = String(dateObj.getDate()).padStart(2, '0');
+  const year = dateObj.getUTCFullYear();
+  const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(dateObj.getUTCDate()).padStart(2, '0');
+  const postUrl = `${SITE_URL}${post.permalink}`;
 
-  const postUrl = `https://saibo.me/${year}/${month}/${day}/${post.slug}`;
-
-  // Generate QR code manually for Satori
+  // 为 Satori 生成二维码点阵（Satori 不支持直接绘制 canvas）
   const qr = QRCode.create(postUrl, { errorCorrectionLevel: 'L' });
   const { size, data } = qr.modules;
   const dots: React.ReactElement[] = [];
@@ -82,7 +81,6 @@ export async function generateOgImage(post: BlogPost) {
         overflow: 'hidden',
       }}
     >
-      {/* Background Pattern */}
       <div style={{
         position: 'absolute',
         top: 0,
@@ -94,7 +92,6 @@ export async function generateOgImage(post: BlogPost) {
         opacity: 0.5,
       }} />
 
-      {/* Gradient Overlay */}
       <div style={{
         position: 'absolute',
         top: 0,
@@ -104,7 +101,6 @@ export async function generateOgImage(post: BlogPost) {
         background: 'linear-gradient(135deg, #121212 0%, #1a1a1a 50%, #050505 100%)',
       }} />
 
-      {/* Hover Effect Overlay (Yellow Tint) */}
       <div style={{
         position: 'absolute',
         top: 0,
@@ -114,7 +110,6 @@ export async function generateOgImage(post: BlogPost) {
         background: 'linear-gradient(90deg, rgba(252, 238, 10, 0.05) 0%, transparent 100%)',
       }} />
 
-      {/* Content Container */}
       <div style={{
         position: 'relative',
         display: 'flex',
@@ -126,7 +121,6 @@ export async function generateOgImage(post: BlogPost) {
         borderLeft: `12px solid ${colors.yellow}`,
       }}>
 
-        {/* Header */}
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <div style={{ display: 'flex', alignItems: 'center', marginBottom: '10px', fontFamily: '"Share Tech Mono", "Noto Sans SC", monospace', fontSize: '24px', color: '#888' }}>
             <div style={{ display: 'flex', marginRight: '10px' }}>
@@ -152,7 +146,6 @@ export async function generateOgImage(post: BlogPost) {
           </h1>
         </div>
 
-        {/* Description */}
         <div style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
            <p style={{
              fontSize: '32px',
@@ -162,11 +155,10 @@ export async function generateOgImage(post: BlogPost) {
              overflow: 'hidden',
              fontFamily: '"Noto Sans SC", sans-serif'
            }}>
-             {post.description || post.content.replace(/<[^>]*>?/gm, '').substring(0, 150) + '……'}
+             {post.description || `${(post.content || '').replace(/<[^>]*>?/gm, '').substring(0, 150)}……`}
            </p>
         </div>
 
-        {/* Footer / Tags */}
         <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginTop: 'auto' }}>
           <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
             {post.tags.slice(0, 4).map(tag => (
@@ -211,7 +203,6 @@ export async function generateOgImage(post: BlogPost) {
           </div>
         </div>
 
-        {/* Decorative Elements */}
         <div style={{
           position: 'absolute',
           top: '40px',
@@ -265,8 +256,5 @@ export async function generateOgImage(post: BlogPost) {
   );
 
   const resvg = new Resvg(svg);
-  const pngData = resvg.render();
-  const pngBuffer = pngData.asPng();
-
-  return pngBuffer;
+  return resvg.render().asPng();
 }

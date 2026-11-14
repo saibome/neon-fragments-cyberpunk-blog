@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'react-router';
-import { BlogPost, PostListResult } from '../types';
+import { PAGE_SIZE } from '../config';
+import { queryKeyFor } from '../lib/postList';
+import type { BlogPost, PostListResult } from '../types';
 import { useData } from '../contexts/DataContext';
-import { useProfile } from '../contexts/ProfileContext';
 import PostCard from './PostCard';
 import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
@@ -12,12 +13,11 @@ interface PostListProps {
 
 const PostList: React.FC<PostListProps> = ({ posts: propPosts }) => {
   const { posts: contextPosts, initialList } = useData();
-  const { resetProfile } = useProfile();
   const [searchParams, setSearchParams] = useSearchParams();
   const page = Math.max(1, Number(searchParams.get('page')) || 1);
   const searchQuery = searchParams.get('search') || '';
   const tagQuery = searchParams.get('tags') || searchParams.get('tag') || '';
-  const queryKey = `${page}|${searchQuery}|${tagQuery}`;
+  const queryKey = queryKeyFor(page, PAGE_SIZE, searchQuery, tagQuery);
   const initialListForQuery = initialList?.queryKey === queryKey ? initialList : undefined;
   const [posts, setPosts] = useState<BlogPost[]>(propPosts || initialListForQuery?.posts || contextPosts || []);
   const [loading, setLoading] = useState(!propPosts && !initialListForQuery);
@@ -28,10 +28,6 @@ const PostList: React.FC<PostListProps> = ({ posts: propPosts }) => {
   );
 
   useEffect(() => {
-    resetProfile();
-  }, [resetProfile]);
-
-  useEffect(() => {
     setInputValue(searchQuery);
   }, [searchQuery]);
 
@@ -40,7 +36,7 @@ const PostList: React.FC<PostListProps> = ({ posts: propPosts }) => {
     if (!request || request.key !== queryKey) {
       const params = new URLSearchParams();
       params.set('page', String(page));
-      params.set('limit', '10');
+      params.set('limit', String(PAGE_SIZE));
       if (searchQuery) params.set('search', searchQuery);
       if (tagQuery) params.set('tags', tagQuery);
 
@@ -79,12 +75,9 @@ const PostList: React.FC<PostListProps> = ({ posts: propPosts }) => {
     if (e.key === 'Enter') {
       setSearchParams(prev => {
         const newParams = new URLSearchParams(prev);
-        if (inputValue) {
-          newParams.set('search', inputValue);
-        } else {
-          newParams.delete('search');
-        }
-        newParams.set('page', '1'); // Reset to page 1 on search
+        if (inputValue) newParams.set('search', inputValue);
+        else newParams.delete('search');
+        newParams.set('page', '1');
         return newParams;
       });
     }
@@ -159,7 +152,6 @@ const PostList: React.FC<PostListProps> = ({ posts: propPosts }) => {
                 <X className="h-4 w-4" />
               </button>
             )}
-            {/* Decorative elements */}
             <div className="absolute top-0 right-0 w-2 h-2 bg-cyber-yellow group-focus-within:bg-cyber-cyan transition-colors"></div>
             <div className="absolute bottom-0 left-0 w-2 h-2 bg-cyber-yellow group-focus-within:bg-cyber-cyan transition-colors"></div>
           </div>
@@ -184,29 +176,28 @@ const PostList: React.FC<PostListProps> = ({ posts: propPosts }) => {
         )}
       </div>
 
-      {/* Pagination Controls */}
       <div className="mt-12 flex justify-center items-center space-x-6">
-         <button
-           onClick={() => handlePageChange(page - 1)}
-           disabled={page <= 1}
-           className={`flex items-center space-x-2 font-mono text-sm uppercase tracking-widest border border-transparent px-4 py-2 transition-all ${page <= 1 ? 'text-gray-600 cursor-not-allowed' : 'text-cyber-cyan hover:border-cyber-cyan hover:bg-cyber-cyan/10'}`}
-         >
-            <ChevronLeft className="w-4 h-4" />
-            <span>上一页</span>
-         </button>
+        <button
+          onClick={() => handlePageChange(page - 1)}
+          disabled={page <= 1}
+          className={`flex items-center space-x-2 font-mono text-sm uppercase tracking-widest border border-transparent px-4 py-2 transition-all ${page <= 1 ? 'text-gray-600 cursor-not-allowed' : 'text-cyber-cyan hover:border-cyber-cyan hover:bg-cyber-cyan/10'}`}
+        >
+          <ChevronLeft className="w-4 h-4" />
+          <span>上一页</span>
+        </button>
 
-         <div className="font-mono text-cyber-yellow text-sm">
-            第 <span className="text-white font-bold">{page}</span> 页，共 {totalPages} 页
-         </div>
+        <div className="font-mono text-cyber-yellow text-sm">
+          第 <span className="text-white font-bold">{page}</span> 页，共 {totalPages} 页
+        </div>
 
-         <button
-           onClick={() => handlePageChange(page + 1)}
-           disabled={page >= totalPages}
-           className={`flex items-center space-x-2 font-mono text-sm uppercase tracking-widest border border-transparent px-4 py-2 transition-all ${page >= totalPages ? 'text-gray-600 cursor-not-allowed' : 'text-cyber-cyan hover:border-cyber-cyan hover:bg-cyber-cyan/10'}`}
-         >
-            <span>下一页</span>
-            <ChevronRight className="w-4 h-4" />
-         </button>
+        <button
+          onClick={() => handlePageChange(page + 1)}
+          disabled={page >= totalPages}
+          className={`flex items-center space-x-2 font-mono text-sm uppercase tracking-widest border border-transparent px-4 py-2 transition-all ${page >= totalPages ? 'text-gray-600 cursor-not-allowed' : 'text-cyber-cyan hover:border-cyber-cyan hover:bg-cyber-cyan/10'}`}
+        >
+          <span>下一页</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );

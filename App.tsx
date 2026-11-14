@@ -1,27 +1,15 @@
 import React from 'react';
 import { BrowserRouter } from 'react-router';
-import { HelmetProvider } from 'react-helmet-async';
 import { AppRoutes } from './AppRoutes';
-import { DataProvider } from './contexts/DataContext';
-import { ProfileProvider } from './contexts/ProfileContext';
-import { InitialData } from './types';
+import { AppProviders } from './components/AppProviders';
+import type { InitialData } from './types';
 
-interface AppProps {
-  initialData?: InitialData;
-}
-
-function App({ initialData = { posts: [] } }: AppProps) {
+export default function App({ initialData }: { initialData: InitialData }) {
   return (
-    <DataProvider initialData={initialData}>
-      <ProfileProvider>
-        <HelmetProvider>
-          <BrowserRouter>
-            <AppRoutes />
-          </BrowserRouter>
-        </HelmetProvider>
-      </ProfileProvider>
-    </DataProvider>
+    <AppProviders initialData={initialData}>
+      <BrowserRouter>
+        <AppRoutes />
+      </BrowserRouter>
+    </AppProviders>
   );
 }
-
-export default App;

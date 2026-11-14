@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 400" width="1200" height="400">
+  <rect width="1200" height="400" fill="#0a0a0a"/>
+  <g stroke="#1c2c30" stroke-width="1">
+    <path d="M0 50H1200M0 100H1200M0 150H1200M0 200H1200M0 250H1200M0 300H1200M0 350H1200"/>
+    <path d="M100 0V400M200 0V400M300 0V400M400 0V400M500 0V400M600 0V400M700 0V400M800 0V400M900 0V400M1000 0V400M1100 0V400"/>
+  </g>
+  <path d="M0 400L300 120L470 260L700 40L1200 400Z" fill="#101a1c" stroke="#00f0ff" stroke-width="2"/>
+  <path d="M0 320L240 200L420 320" fill="none" stroke="#fcee0a" stroke-width="3"/>
+  <rect x="60" y="60" width="180" height="6" fill="#fcee0a"/>
+  <rect x="60" y="80" width="90" height="6" fill="#ff003c"/>
+  <rect x="960" y="40" width="180" height="180" fill="none" stroke="#00f0ff" stroke-width="2"/>
+  <rect x="990" y="70" width="120" height="120" fill="none" stroke="#fcee0a" stroke-width="2"/>
+  <circle cx="1050" cy="130" r="30" fill="none" stroke="#ff003c" stroke-width="3"/>
+  <text x="60" y="350" fill="#00f0ff" font-family="monospace" font-size="26" letter-spacing="8">NEON FRAGMENTS // NO SIGNAL</text>
+</svg>

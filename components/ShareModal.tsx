@@ -1,6 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { X, Copy, Link as LinkIcon, Check } from 'lucide-react';
-import CyberButton from './CyberButton';
 
 interface ShareModalProps {
   isOpen: boolean;

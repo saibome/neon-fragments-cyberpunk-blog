@@ -1,5 +1,5 @@
 {
   "name": "Neon Fragments: Cyberpunk Blog",
-  "description": "A futuristic, immersive Cyberpunk 2077-inspired blog interface featuring dynamic content generation via Gemini API, glitched aesthetics, and a react-based netrunner UI.",
+  "description": "一个以赛博朋克视觉风格呈现的 SSR 博客：构建期把 Markdown 编译为 JSON，运行时由 Hono 服务端渲染，客户端 hydrate 后接管路由。",
   "requestFramePermissions": []
 }

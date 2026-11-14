@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect width="200" height="200" fill="#121212"/>
+  <g stroke="#2a2a2a" stroke-width="1">
+    <path d="M0 40H200M0 80H200M0 120H200M0 160H200"/>
+    <path d="M40 0V200M80 0V200M120 0V200M160 0V200"/>
+  </g>
+  <rect x="20" y="20" width="160" height="160" fill="none" stroke="#fcee0a" stroke-width="4"/>
+  <path d="M100 42L152 78V140L100 168L48 140V78Z" fill="#1a1a1a" stroke="#00f0ff" stroke-width="3"/>
+  <circle cx="100" cy="98" r="22" fill="none" stroke="#fcee0a" stroke-width="4"/>
+  <path d="M64 140Q100 108 136 140" fill="none" stroke="#00f0ff" stroke-width="4"/>
+  <path d="M30 30H60M140 170H170" stroke="#ff003c" stroke-width="4"/>
+  <text x="100" y="190" fill="#00f0ff" font-family="monospace" font-size="12" text-anchor="middle" letter-spacing="3">NETRUNNER</text>
+</svg>

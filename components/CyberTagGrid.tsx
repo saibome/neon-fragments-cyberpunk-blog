@@ -27,7 +27,7 @@ const CyberTagGrid: React.FC<CyberTagGridProps> = ({ tags }) => {
   );
 };
 
-const TagItem: React.FC<{ tag: Tag; index: number; maxCount: number }> = ({ tag, index, maxCount }) => {
+const TagItem: React.FC<{ tag: Tag; index: number; maxCount: number }> = ({ tag, maxCount }) => {
   const [isHovered, setIsHovered] = useState(false);
 
   // Calculate relative importance (0 to 1)

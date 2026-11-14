@@ -1,7 +1,16 @@
+export interface PostRef {
+  slug: string;
+  title: string;
+  date: string;
+  permalink: string;
+}
+
 export interface BlogPost {
   id: string;
   title: string;
   slug: string;
+  /** 构建期按 UTC 生成的规范路径 /YYYY/MM/DD/slug */
+  permalink: string;
   content: string;
   description?: string;
   image?: string;
@@ -11,8 +20,8 @@ export interface BlogPost {
   readTime: string;
   likes: number;
   isGlitch?: boolean;
-  previous?: { slug: string; title: string; date: string };
-  next?: { slug: string; title: string; date: string };
+  previous?: PostRef;
+  next?: PostRef;
 }
 
 export interface PostListResult {
@@ -28,6 +37,8 @@ export interface InitialData {
   posts: BlogPost[];
   list?: PostListResult;
   resolvedSlug?: string;
+  /** 由服务端注入，保证 SSR 与浏览器使用同一个站点地址 */
+  siteUrl: string;
 }
 
 export interface UserProfile {
@@ -42,11 +53,6 @@ export interface UserProfile {
     cpu: number;
     network: number;
   };
-}
-
-export enum ViewState {
-  LIST = 'LIST',
-  DETAIL = 'DETAIL'
 }
 
 export enum NavItem {

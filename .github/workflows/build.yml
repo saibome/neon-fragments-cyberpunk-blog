@@ -17,40 +17,33 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Use Node.js
+    - name: Install pnpm
+      uses: pnpm/action-setup@v4
+      with:
+        version: 12.18.0
+        run_install: false
+
+    - name: Use Node.js 26
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
-        cache: 'npm'
+        node-version: '26'
+        cache: 'pnpm'
 
     - name: Install dependencies
-      run: npm ci
+      run: pnpm install --frozen-lockfile
 
-    - name: Create empty posts.json for build
-      # We need posts.json to exist for the build to succeed (if it's imported/read)
-      # But we want it empty for the final artifact.
-      # The code now handles empty/missing file gracefully in try-catch,
-      # but we should ensure the directory exists.
-      run: |
-        mkdir -p services
-        echo "[]" > services/posts.json
+    - name: Quality gates
+      run: pnpm typecheck && pnpm lint && pnpm test
 
-    - name: Build Client
-      run: npm run build:client
-
-    - name: Build Server
-      run: npm run build:server
+    - name: Build client, server and content
+      run: pnpm build
 
     - name: Prepare Release Artifact
       run: |
-        mkdir release
-        cp package.json release/
-        cp package-lock.json release/
-        cp Dockerfile release/
-        cp -r dist release/
         mkdir -p release/services
-        echo "[]" > release/services/posts.json
-        mkdir -p release/images
+        cp package.json pnpm-lock.yaml pnpm-workspace.yaml Dockerfile .nvmrc release/
+        cp -r dist release/
+        cp services/posts.json release/services/posts.json
 
     - name: Zip Release
       run: |

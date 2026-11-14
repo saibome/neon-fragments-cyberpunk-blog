@@ -1,37 +1,14 @@
-import React, { createContext, useContext, useState, ReactNode, useCallback } from 'react';
-import { UserProfile } from '../types';
-import { DEFAULT_AUTHOR } from '../constants';
+import React, { createContext, useContext, type ReactNode } from 'react';
+import { DEFAULT_AUTHOR } from '../config';
+import type { UserProfile } from '../types';
 
-interface ProfileContextType {
-  user: UserProfile;
-  setProfile: (user: UserProfile) => void;
-  resetProfile: () => void;
-}
+/** 站点默认档案；文章作者信息由各文章自己的 frontmatter 提供 */
+const ProfileContext = createContext<UserProfile>(DEFAULT_AUTHOR);
 
-const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
+export const ProfileProvider: React.FC<{ children: ReactNode }> = ({ children }) => (
+  <ProfileContext.Provider value={DEFAULT_AUTHOR}>
+    {children}
+  </ProfileContext.Provider>
+);
 
-export const ProfileProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile>(DEFAULT_AUTHOR);
-
-  const setProfile = useCallback((newUser: UserProfile) => {
-    setUser(newUser);
-  }, []);
-
-  const resetProfile = useCallback(() => {
-    setUser(DEFAULT_AUTHOR);
-  }, []);
-
-  return (
-    <ProfileContext.Provider value={{ user, setProfile, resetProfile }}>
-      {children}
-    </ProfileContext.Provider>
-  );
-};
-
-export const useProfile = () => {
-  const context = useContext(ProfileContext);
-  if (context === undefined) {
-    throw new Error('useProfile must be used within a ProfileProvider');
-  }
-  return context;
-};
+export const useProfile = () => useContext(ProfileContext);

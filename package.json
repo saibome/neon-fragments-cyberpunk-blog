@@ -3,6 +3,11 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "packageManager": "pnpm@12.18.0",
+  "engines": {
+    "node": ">=26",
+    "pnpm": ">=12"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/ShinChven/neon-fragments-cyberpunk-blog.git"
@@ -10,16 +15,18 @@
   "scripts": {
     "dev": "vite",
     "build:content": "tsx scripts/build-content.ts",
-    "build:client": "vite build --outDir dist/client && mv dist/client/index.html dist/client/index.html.template",
+    "build:client": "vite build --outDir dist/client && node scripts/move-template.mjs",
     "build:server": "vite build --ssr server/index.ts --outDir dist/server",
-    "build": "npm run build:content && npm run build:client && npm run build:server",
+    "build": "pnpm build:content && pnpm build:client && pnpm build:server",
     "start": "node dist/server/index.js",
-    "preview": "node dist/server/index.js"
+    "preview": "node dist/server/index.js",
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint .",
+    "test": "node --import tsx --test tests/permalink.test.ts tests/content.test.ts tests/posts.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.8",
     "@resvg/resvg-js": "^2.6.2",
-    "@types/qrcode": "^1.5.6",
     "d3": "^7.9.2",
     "gray-matter": "^4.0.3",
     "highlight.js": "^11.12.0",
@@ -35,20 +42,22 @@
     "satori": "^0.63.2"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261113.1",
     "@hono/vite-dev-server": "^0.26.1",
     "@tailwindcss/vite": "^4.3.5",
     "@types/d3": "^7.4.3",
     "@types/node": "^26.6.6",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
+    "@types/sanitize-html": "^2.16.2",
     "@vitejs/plugin-react": "^6.3.0",
-    "autoprefixer": "^10.6.2",
     "fast-glob": "^3.3.3",
-    "postcss": "^8.5.32",
+    "oxlint": "^1.93.0",
+    "sanitize-html": "^2.18.2",
     "tailwindcss": "^4.3.5",
     "tsx": "^4.23.15",
     "typescript": "~7.0.2",
-    "vite": "^8.3.8"
+    "vite": "^8.3.8",
+    "zod": "^4.6.7"
   }
 }
