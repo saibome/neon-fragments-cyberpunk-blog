@@ -63,8 +63,8 @@ test('正文消毒会移除脚本与事件属性，但保留代码高亮 class',
   assert.ok(clean.includes('language-ts'));
 });
 
-test('Markdown 渲染产出高亮代码且不保留脚本', async () => {
-  const html = await renderMarkdown('```ts\nconst signal = 1;\n```\n\n<script>alert(1)</script>');
+test('Markdown 渲染产出高亮代码且不保留脚本', () => {
+  const html = renderMarkdown('```ts\nconst signal = 1;\n```\n\n<script>alert(1)</script>');
   assert.ok(html.includes('language-ts'));
   assert.ok(html.includes('hljs-keyword'));
   assert.ok(!html.includes('<script'));

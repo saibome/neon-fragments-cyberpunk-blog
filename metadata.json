@@ -1,5 +1,5 @@
 {
   "name": "Neon Fragments: Cyberpunk Blog",
-  "description": "一个以赛博朋克视觉风格呈现的 SSR 博客：构建期把 Markdown 编译为 JSON，运行时由 Hono 服务端渲染，客户端 hydrate 后接管路由。",
+  "description": "以 Astro 7 静态预渲染的赛博朋克博客：构建期把 Markdown 编译为 JSON 并生成页面、订阅源与分享图，交互由原生 JavaScript 实现。",
   "requestFramePermissions": []
 }

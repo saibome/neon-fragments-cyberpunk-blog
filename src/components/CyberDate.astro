@@ -1,0 +1,31 @@
+---
+interface Props {
+  date: string;
+  class?: string;
+}
+
+const { date, class: className = '' } = Astro.props;
+const dateObj = new Date(date);
+const valid = !Number.isNaN(dateObj.getTime());
+const year = dateObj.getUTCFullYear();
+const month = String(dateObj.getUTCMonth() + 1).padStart(2, '0');
+const day = String(dateObj.getUTCDate()).padStart(2, '0');
+const formatted = `${year}年${month}月${day}日`;
+---
+
+{valid ? (
+  <time
+    class:list={['inline-flex items-center font-mono tracking-wider', className]}
+    datetime={dateObj.toISOString()}
+    aria-label={`日期：${formatted}`}
+  >
+    <span class="text-cyber-cyan">{year}</span>
+    <span class="text-gray-600">年</span>
+    <span class="text-cyber-yellow">{month}</span>
+    <span class="text-gray-600">月</span>
+    <span class="text-white">{day}</span>
+    <span class="text-gray-600">日</span>
+  </time>
+) : (
+  <span class={className}>{date}</span>
+)}

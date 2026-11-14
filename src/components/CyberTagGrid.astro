@@ -1,0 +1,43 @@
+---
+import GlitchText from './GlitchText.astro';
+
+interface Props {
+  tags: { tag: string; count: number }[];
+}
+
+const { tags } = Astro.props;
+const sorted = [...tags].sort((a, b) => b.count - a.count);
+const maxCount = Math.max(...tags.map(item => item.count), 1);
+
+function sizeClass(importance: number): string {
+  if (importance > 0.8) return 'text-xl md:text-2xl font-bold';
+  if (importance > 0.6) return 'text-lg md:text-xl font-semibold';
+  if (importance > 0.4) return 'text-base md:text-lg';
+  return 'text-sm md:text-base';
+}
+---
+
+<div class="w-full max-w-7xl mx-auto p-4">
+  <div class="flex flex-wrap justify-center gap-3 md:gap-4">
+    {sorted.map(tag => (
+      <a
+        href={`/?tag=${encodeURIComponent(tag.tag)}&page=1`}
+        class:list={[
+          'relative group inline-flex items-center justify-center px-4 py-2 md:px-6 md:py-3 bg-black/60 border border-cyber-cyan/30 hover:border-cyber-yellow hover:bg-cyber-yellow/10 transition-all duration-200 ease-out cursor-pointer',
+          sizeClass(tag.count / maxCount),
+          tag.count > 0 ? 'opacity-100' : 'opacity-80'
+        ]}
+        style="clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px)"
+      >
+        <span class="absolute top-0 left-0 w-2 h-2 border-t border-l border-cyber-cyan group-hover:border-cyber-yellow transition-colors duration-300"></span>
+        <span class="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-cyber-cyan group-hover:border-cyber-yellow transition-colors duration-300"></span>
+        <span class="absolute inset-0 bg-gradient-to-b from-transparent via-cyber-yellow/5 to-transparent translate-y-[-100%] group-hover:animate-scanline pointer-events-none"></span>
+        <span class="font-mono text-cyber-cyan group-hover:text-cyber-yellow transition-colors relative z-10 tracking-wider flex items-center">
+          <span class="mr-1 inline-block opacity-0 group-hover:opacity-100 transition-opacity duration-200">&gt;</span>
+          <GlitchText text={tag.tag} />
+        </span>
+        <span class="ml-3 text-xs font-mono text-gray-600 group-hover:text-cyber-yellow/70 transition-colors">{String(tag.count).padStart(2, '0')}</span>
+      </a>
+    ))}
+  </div>
+</div>

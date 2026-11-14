@@ -33,15 +33,19 @@ jobs:
       run: pnpm install --frozen-lockfile
 
     - name: Quality gates
-      run: pnpm typecheck && pnpm lint && pnpm test
+      run: pnpm build:content && pnpm typecheck && pnpm lint && pnpm test
 
-    - name: Build client, server and content
+    - name: Build static site
       run: pnpm build
+
+    - name: Verify EdgeOne deployment readiness
+      run: pnpm check:edgeone
 
     - name: Prepare Release Artifact
       run: |
-        mkdir -p release/services
-        cp package.json pnpm-lock.yaml pnpm-workspace.yaml Dockerfile .nvmrc release/
+        mkdir -p release/scripts release/services
+        cp package.json pnpm-lock.yaml pnpm-workspace.yaml Dockerfile .nvmrc edgeone.json release/
+        cp scripts/serve.mjs release/scripts/serve.mjs
         cp -r dist release/
         cp services/posts.json release/services/posts.json
 

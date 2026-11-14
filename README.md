@@ -1,6 +1,6 @@
 # 霓虹碎片 / Neon Fragments
 
-赛博朋克风格的 SSR 博客。**程序与内容分离**：Markdown 在构建期编译成 JSON，运行时由 Hono 在 Node.js 上服务端渲染，浏览器 hydrate 后接管路由。
+赛博朋克风格的静态博客，基于 **Astro 7**。**没有 React、没有 Hono、没有 SSR 运行时**：Markdown 在构建期编译成 JSON，Astro 把页面、订阅源、API JSON 与分享图全部预渲染到 `dist/`；浏览器里的少量交互由原生 JavaScript 完成。
 
 ## 运行环境
 
@@ -8,20 +8,16 @@
 | :--- | :--- | :--- |
 | Node.js | 26 | `.nvmrc`、`package.json#engines`、`Dockerfile`、CI |
 | pnpm | 12.18.0 | `package.json#packageManager`、`pnpm-lock.yaml` |
+| Astro | 7.4.x | `astro.config.mjs` |
 
 仓库只使用 pnpm，请不要用 `npm ci` / `yarn install`。
 
 ```bash
 pnpm install
-cp .env.example .env.local   # 可选，本地环境变量
-pnpm dev                     # http://localhost:3000
-```
-
-生产构建与启动：
-
-```bash
-pnpm build                   # build:content → build:client → build:server
-pnpm start                   # node dist/server/index.js
+cp .env.example .env.local   # 可选：设置 SITE_URL
+pnpm dev                     # http://localhost:3000，启动前自动编译内容
+pnpm build                   # build:content → astro build → postbuild
+pnpm start                   # 用零依赖静态服务托管 dist/
 ```
 
 ## 架构
@@ -31,23 +27,26 @@ pnpm start                   # node dist/server/index.js
           │ gray-matter + zod 校验
           │ marked + highlight.js + sanitize-html 消毒
           ▼
-        services/posts.json  (含按 UTC 生成的 permalink)
+        services/posts.json（含按 UTC 生成的 permalink）
           │
-运行期  Hono (Node.js) ── renderToString + Helmet + __INITIAL_DATA__ ──► 首屏 HTML
-          │                                                          │
-          ├─ /api/posts  /api/posts/:slug  /api/tags                  │ hydrateRoot
-          ├─ /rss.xml  /atom.xml  /sitemap.xml  /robots.txt           ▼
-          └─ /card/YYYY/MM/DD/slug.png（动态生成 OG 分享图）      客户端 SPA
+          ├── Astro 页面/布局/组件 ──► dist/index.html、/net/、/gear/、/2026/…/
+          ├── Astro 端点 ──────────► rss.xml / atom.xml / sitemap.xml / robots.txt
+          │                            api/*.json
+          │                            card/YYYY/MM/DD/slug.png（satori + resvg）
+          └── scripts/postbuild.mjs ► 平铺 .html 副本、canonical.json、
+                                     cloud-functions/data.js
+运行期  静态托管 / node:http 服务 / EdgeOne Pages + Cloud Functions
+          └─ 浏览器：原生 JS 负责搜索、分页、标签、分享弹窗、代码块工具栏
 ```
 
-### 几处关键的一致性设计
+### 几处关键设计
 
-- **永久链接**：`permalink` 在构建期按 UTC 生成，服务端、浏览器、sitemap、RSS、OG 图都只读 `post.permalink`；日期段不匹配的 URL 会 301 到规范地址，避免重复内容。
-- **站点地址**：服务端读运行时 `SITE_URL`，并通过 `__INITIAL_DATA__` 注入浏览器；canonical、RSS、分享链接不再各写一份域名。
-- **首屏一致**：`AppRoutes` 的页面组件同步导入，服务端与浏览器渲染同一棵组件树。这里刻意不用 `React.lazy` —— 它会在 hydrate 首帧落到 Suspense fallback，把 SSR 内容替换掉。若将来要恢复按路由拆包，需要同时升级到流式 SSR 与 SSR-aware 预加载。
-- **首屏数据**：放在 `<script type="application/json" id="__INITIAL_DATA__">` 中，不注入可执行脚本。
-- **HTML 模板**：客户端构建产出的 `index.html` 会被移到 `dist/template/`，既不会覆盖 SSR 首页，也不会被静态服务直接下载；`build:client` 用 Node 脚本搬移，Windows 可用。
-- **静态资源**：封面与头像是仓库内的 SVG，不依赖外部图床。
+- **永久链接**：`permalink` 在构建期按 UTC 生成一次，页面、sitemap、RSS、OG 图、canonical 全部只读 `post.permalink`；日期段不符的 URL 由 Cloud Functions / `scripts/serve.mjs` 301 到规范地址。
+- **站点地址**：`scripts/env.mjs` 统一解析 `SITE_URL`（shell 环境变量优先，其次 `.env.local`），Astro 配置、页面渲染与 postbuild 共用；静态站点的域名在构建期固化，换域名需要重新构建。
+- **内容安全**：frontmatter 由 zod 校验，类型不对直接让构建失败；Markdown 产出的 HTML 经 sanitize-html 白名单消毒后才用 `set:html` 注入页面。
+- **零框架交互**：搜索/标签/分页直接对预渲染的卡片做显隐（不请求接口，无 JS 时全部文章可见）；侧栏、脑波图、分享弹窗（原生 `<dialog>`）、代码块工具栏都是原生 JS。图标是构建期提取的静态 SVG，不引入 React 图标库。
+- **OG 分享图**：satori 接受 `{ type, props }` 形状的节点对象，因此用 `src/lib/ogImage.ts` 的 `h()` 构造节点树，**不需要 JSX 或 React**；resvg 输出 PNG。
+- **API 语义**：静态端点产出 `api/*.json` 供外部消费；动态查询由 Cloud Functions 或 `serve.mjs` 提供，未知 `/api/*` 返回 JSON 404 而不是一整页 HTML。
 
 ## 写文章
 
@@ -80,82 +79,109 @@ isGlitch: true
 | `isGlitch` | `boolean` | 文章卡片的故障特效 | `false` |
 | `id` | `string` | 唯一标识 | slug |
 
-frontmatter 由 zod 校验：类型不对（例如把 `tags` 写成字符串）会直接让构建失败，而不是留到线上运行时崩溃。Markdown 产出的 HTML 会经 sanitize-html 白名单消毒，才允许进入 `dangerouslySetInnerHTML`。
-
 ```bash
 pnpm build:content   # 只重编译内容
+pnpm build           # 重新生成页面与分享图
 ```
 
 ## 部署
 
-主运行形态是 **Node.js 服务**：服务端依赖 `node:fs`、`@hono/node-server` 与 `resvg-js` 原生模块，不能直接跑在 Cloudflare Workers 之类的边缘运行时上。目标是 EdgeOne Pages 这类「静态 + 函数」平台时，请走下面的构建期预渲染路径，不要直接上传 `dist/server`。
+产物是纯静态站点 `dist/`，没有必须常驻的 Node 服务。
 
-### Docker / 发布包
+### 自托管 / Docker
+
+`scripts/serve.mjs` 是一个零依赖的 `node:http` 静态服务：分发 `dist/`、处理 `/api/*` 动态查询、错误日期 301 与 404 兜底。
 
 ```bash
-docker build -t neon-fragments .
-docker run -p 3000:3000 -e SITE_URL=https://your.domain neon-fragments
+pnpm build
+SITE_URL=https://your.domain pnpm build   # 用正式域名重建
+PORT=3000 pnpm start
+
+docker build --build-arg SITE_URL=https://your.domain -t neon-fragments .
+docker run -p 3000:3000 neon-fragments
 ```
 
-GitHub Actions 会在 push / PR 上以 Node 26 + `pnpm install --frozen-lockfile` 执行 `typecheck → lint → test → build`，并把包含**真实文章数据**的 `dist/` 与 `services/posts.json` 打进 `release.zip`。解压后：
+GitHub Actions 在 push / PR 上以 Node 26 + `pnpm install --frozen-lockfile` 执行 `build:content → typecheck → lint → test → build`，并把 `dist/`、`scripts/serve.mjs` 与**真实文章数据**打进 `release.zip`。解压后无需安装依赖：
 
 ```bash
-pnpm install --prod --frozen-lockfile
-node dist/server/index.js
+node scripts/serve.mjs
 ```
 
 ### 腾讯云 EdgeOne Pages（静态资源 + Cloud Functions）
 
-`pnpm build:edgeone` 复用 Vite 编译好的 SSR bundle（`EDGEONE_PRERENDER=1` 时只渲染、不监听端口），把首页、静态页、文章页、rss/atom/sitemap/robots 和分享卡片 PNG 全部落成静态文件到 `dist/edgeone/`；`cloud-functions/[[default]].js` 只兜底 `/api/*`、错误日期 301 与 404，不依赖 hono、`node:fs` 或原生模块。文章数据构建期固定，因此预渲染与运行时 SSR 等价，但更适合边缘分发。
+仓库已提交 `edgeone.json`，构建参数不需要在控制台手填。Astro 产出完整静态站点，`pnpm build` 同时生成 `cloud-functions/data.js`（函数数据源）与平铺 `.html` 副本（clean URL 兜底）。
 
 控制台（国内站 `https://console.cloud.tencent.com/edgeone/pages`）：
 
-1. 开通 Pages → 绑定 GitHub → 授权 EO Pages → 选择本仓库，部署分支 `main`。
-2. 在「项目设置 → 构建部署配置」填写：
+1. 开通 Pages → 绑定 GitHub → 授权 EO Pages → 选择 `saibome/neon-fragments-cyberpunk-blog`，部署分支 `main`。
+2. 在项目设置里添加环境变量 `SITE_URL=https://your.domain`（构建期固化到 canonical / feed / 分享图），保存并开始部署；之后 push `main` 自动重部署。
+3. 选「全球（含中国大陆）」加速区并绑定自定义域名需要 ICP 备案；仅面向海外可选「全球（不含中国大陆）」。
 
-   | 配置项 | 值 |
-   | :--- | :--- |
-   | 根目录 | `./` |
-   | 安装命令 | `npm i -g pnpm@12.18.0 && pnpm install --frozen-lockfile` |
-   | 构建命令 | `pnpm build:edgeone` |
-   | 输出目录 | `dist/edgeone` |
-   | Node.js 版本 | `26`（`.nvmrc` 会自动下载；该版本不预装包管理器，故安装命令里显式安装 pnpm） |
-   | 环境变量 | `SITE_URL=https://your.domain` |
+`edgeone.json` 覆盖的配置（控制台同名项以其为准）：
 
-3. 保存并开始部署；之后 push `main` 会自动重部署。`cloud-functions/` 位于仓库根，由 Pages 按 Cloud Functions 约定识别。
-4. 选「全球（含中国大陆）」加速区并绑定自定义域名需要 ICP 备案；仅面向海外可选「全球（不含中国大陆）」。
+| 配置项 | 值 | 说明 |
+| :--- | :--- | :--- |
+| 根目录 | `./`（默认） | 仓库根 |
+| 安装命令 | `npm i -g pnpm@12.18.0 && pnpm install --frozen-lockfile` | 平台预装 pnpm 仅到 9，必须显式安装 12 |
+| 构建命令 | `pnpm build` | `pnpm build:edgeone` 是「构建 + 自检」别名 |
+| 输出目录 | `dist` | Astro 静态产物 |
+| Node.js 版本 | `.nvmrc` → `26` | **故意不写 `nodeVersion`**：官方只支持预装版本（最高 24.5.0），写 26 会导致部署失败；`.nvmrc` 触发平台自动下载 26，但该版本不带包管理器，所以安装命令里显式装 pnpm |
+| 缓存 / 安全头 | `/_astro/*`、`/fonts/*` 长缓存；全局 nosniff、Referrer-Policy | HTML 不设长缓存，避免更新后读到旧页 |
+| clean URL 兜底 | `/net`、`/data`、`/gear` → 同名 `.html` | 兼容平台不自动展开目录索引的情况 |
+| 函数时长 | `cloudFunctions.nodejs.maxDuration: 10` | 函数只做 JSON 查询 |
 
-改动 `_posts/` 后请本地执行一次 `pnpm build:edgeone` 并提交更新后的 `cloud-functions/data.js`，确保 API 兜底数据与文章一致（Pages 构建时也会重新生成该文件）。
+函数入口在仓库根 `cloud-functions/`：`[[default]].js` 是 catch-all（动态 `/api/*`、错误日期 301、404 兜底），另加 `api/posts.js`、`api/tags.js`、`api/posts/[slug].js` 三条明确路由，避免平台未识别 catch-all 时核心接口失效。所有入口都导出 `onRequest` 与 `default`，逻辑集中在 `_lib/handler.js`；函数运行时为平台 Node 20，代码只用 Web 标准 API，不依赖 Node 内置模块或 npm 包。**静态资源优先于函数**，因此页面、feed、图片都直接命中 `dist/`。
+
+部署前可本地验证：
+
+```bash
+pnpm build:edgeone   # 构建并执行 scripts/check-edgeone.mjs
+pnpm check:edgeone   # 只自检：产物完整性、data.js 与文章同步、函数入口、配置约束
+```
+
+CI 也会在每次 push 后执行 `pnpm check:edgeone`。改动 `_posts/` 后请本地跑一次 `pnpm build` 并提交更新后的 `cloud-functions/data.js`。
+
+首次部署后建议逐项核验：首页 `/`、文章页 `/YYYY/MM/DD/slug`、静态页 `/net`、`/api/posts?limit=1`（JSON）、`/api/tags`、`/rss.xml`、`/card/YYYY/MM/DD/slug.png`（PNG）、错误日期 `/2099/01/01/<slug>`（301 到规范链接）、未知页（404）。若文章页 404，检查平台是否自动展开 `目录/index.html`（仓库同时提供了 `/YYYY/MM/DD/slug.html` 平铺副本），必要时在 `edgeone.json` 的 `rewrites` 中补对应规则；若 `/api/*` 返回 HTML 404，说明函数目录未被识别，请查看构建日志中的 Cloud Functions 编译结果。
 
 环境变量：
 
-| 变量 | 用途 | 默认 |
-| :--- | :--- | :--- |
-| `SITE_URL` | canonical / sitemap / RSS / OG 图的公开地址 | `https://saibo.me` |
-| `PORT` | 生产端口（仅 Node 服务） | `3000` |
-| `CONTENT_DIR` | 内容源目录（仅构建期） | `_posts` |
-| `OG_FONT_DIR` | OG 图字体目录，留空自动探测 | 自动 |
+| 变量 | 用途 | 默认 | 生效阶段 |
+| :--- | :--- | :--- | :--- |
+| `SITE_URL` | canonical / sitemap / RSS / OG 图的公开地址 | `https://saibo.me` | 构建期 |
+| `PORT` | 静态服务监听端口 | `3000` | 运行期（仅 `serve.mjs`） |
+| `CONTENT_DIR` | 内容源目录 | `_posts` | 构建期 |
+| `OG_FONT_DIR` | OG 图字体目录，留空自动探测 | `public/fonts` | 构建期 |
 
 `.env.local` 已被 git 忽略，`.env.example` 是可提交的模板。
 
 ## 质量卡口
 
 ```bash
-pnpm typecheck      # tsc --noEmit
-pnpm lint           # oxlint
-pnpm test           # node:test：永久链接、内容校验/消毒、列表查询、EdgeOne 函数
-pnpm build          # Node 服务完整构建
-pnpm build:edgeone  # EdgeOne Pages 预渲染产物
+pnpm typecheck       # astro check：检查 .astro / .ts / .tsx
+pnpm lint            # oxlint（忽略 .astro 生成的类型缓存）
+pnpm test            # node:test：永久链接、内容校验、列表查询、Cloud Function、EdgeOne 配置
+pnpm build           # 完整静态构建
+pnpm check:edgeone   # EdgeOne 部署前自检（CI 亦会执行）
 ```
 
 ## 目录
 
 - `_posts/` — Markdown 原文（入库）
-- `scripts/` — 内容编译、消毒校验、模板搬移、EdgeOne 预渲染
-- `server/` — Hono 应用、SSR 入口路由、数据加载、动态 OG 图
-- `cloud-functions/` — EdgeOne Pages 兜底函数与构建期生成的数据模块
-- `components/` `contexts/` — React UI 与共享上下文
-- `lib/` — 前后端共用的纯函数（permalink、列表查询）
-- `config.ts` `types.ts` — 站点默认配置与共享类型
+- `src/pages/` — Astro 页面与静态端点
+- `src/layouts/` `src/components/` — Astro 布局与 UI 组件
+- `src/scripts/` — 浏览器端原生 JavaScript
+- `src/lib/` — 文章数据、站点地址、订阅源、OG 图（构建期）
+- `src/data/icons.json` — 从 lucide（ISC License）提取的静态 SVG 图标，运行时不加载图标库
+- `src/styles/global.css` — Tailwind 4 主题与赛博朋克样式
+- `scripts/` — 内容编译、环境变量、静态服务、构建后处理、EdgeOne 部署自检
+- `cloud-functions/` — EdgeOne Pages 函数入口、`_lib/handler.js` 与生成的数据模块
+- `edgeone.json` — EdgeOne Pages 项目配置（构建命令、输出目录、缓存头、clean URL 规则）
+- `lib/` `config.ts` `types.ts` — 前后端共用的纯函数与类型
 - `tests/` — 单元测试
-- `dist/` — 构建产物：`client/`（静态资源）、`server/`（SSR 服务）、`template/`（HTML 模板）、`edgeone/`（预渲染站点）
+- `dist/` — 静态站点产物
+
+## 取舍
+
+- 首页把所有文章卡片预渲染进 HTML（利于 SEO），搜索/分页在客户端完成；文章特别多时可改为静态分页路由。
+- 站点不再有运行时 SSR，`SITE_URL` 在构建期固化；跨域名复用同一份构建产物不适用。
+- `/api/posts` 的带参数查询只在 Cloud Functions 或 `serve.mjs` 下可用；纯静态托管请使用 `api/*.json` 静态数据。

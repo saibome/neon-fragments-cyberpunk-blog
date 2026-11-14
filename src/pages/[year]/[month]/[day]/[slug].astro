@@ -1,0 +1,156 @@
+---
+import BaseLayout from '../../../../layouts/BaseLayout.astro';
+import CyberButton from '../../../../components/CyberButton.astro';
+import CyberDate from '../../../../components/CyberDate.astro';
+import GlitchText from '../../../../components/GlitchText.astro';
+import Icon from '../../../../components/Icon.astro';
+import ShareModal from '../../../../components/ShareModal.astro';
+import { DEFAULT_COVER } from '../../../../../config';
+import { cardUrl } from '../../../../../lib/permalink';
+import { SITE_URL } from '../../../../lib/site';
+import { posts, getPostDetail, plainText } from '../../../../lib/posts';
+import type { BlogPost } from '../../../../../types';
+
+export function getStaticPaths() {
+  return posts.map(post => {
+    const parts = post.permalink.match(/^\/(\d{4})\/(\d{2})\/(\d{2})\/([^/]+)$/);
+    if (!parts) throw new Error(`无法解析 permalink：${post.permalink}`);
+    const [, year, month, day, slug] = parts;
+    return { params: { year, month, day, slug }, props: { post } };
+  });
+}
+
+interface Props {
+  post: BlogPost;
+}
+
+const { post } = Astro.props;
+const currentUrl = `${SITE_URL}${post.permalink}`;
+const displayImage = post.image || DEFAULT_COVER;
+const ogImage = `${SITE_URL}${cardUrl(post.permalink)}`;
+const description = post.description || `${plainText(post.content).substring(0, 150)}……`;
+const detail = getPostDetail(post.slug);
+const olderPost = detail?.previous;
+const newerPost = detail?.next;
+---
+
+<BaseLayout
+  title={`${post.title} | 霓虹碎片`}
+  description={description}
+  canonicalPath={post.permalink}
+  activePath="/"
+  ogImage={ogImage}
+  ogType="article"
+  articleTags={post.tags}
+  publishedTime={new Date(post.date).toISOString()}
+>
+  <div class="bg-cyber-dark min-h-full relative border-t-4 border-cyber-yellow">
+    <div class="w-full bg-zinc-900 relative overflow-hidden flex flex-col justify-end pt-4 md:pt-8">
+      <div class="absolute inset-0 bg-cover bg-center opacity-20 mix-blend-overlay" style={`background-image: url('${displayImage}')`}></div>
+      <div class="absolute inset-0 bg-gradient-to-t from-cyber-dark to-transparent"></div>
+
+      <div class="relative z-10 w-full max-w-4xl mx-auto px-4 md:px-8 pb-4">
+        <a href="/" class="inline-flex items-center text-cyber-cyan hover:text-white transition-colors font-mono text-sm mb-2 md:mb-4">
+          <Icon name="arrow-left" class="w-4 h-4 mr-2" /> 返回文章列表
+        </a>
+        <h1 class="text-2xl md:text-5xl font-display font-bold text-white uppercase tracking-tighter drop-shadow-[0_0_10px_rgba(252,238,10,0.5)]">
+          <GlitchText text={post.title} />
+        </h1>
+        <div class="flex flex-wrap gap-2 mt-4">
+          {post.tags.map(tag => (
+            <a href={`/?tag=${encodeURIComponent(tag)}`} class="text-xs font-bold font-mono bg-cyber-cyan/10 text-cyber-cyan px-3 py-1 border border-cyber-cyan/30 uppercase hover:bg-cyber-cyan/20 transition-colors">#{tag}</a>
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-4 md:px-8 pt-2 pb-4 md:pb-8">
+      <div class="flex flex-col md:flex-row md:items-center justify-between border-b border-gray-800 pb-4 mb-8 font-mono text-sm text-gray-400 gap-2 md:gap-0">
+        <div class="flex items-center space-x-4">
+          <CyberDate date={post.date} class="text-base" />
+          <span class="flex items-center"><span class="w-2 h-2 bg-cyber-red rounded-full mr-2 animate-pulse"></span> {post.readTime}</span>
+        </div>
+        <div class="flex items-center space-x-2">
+          <span>作者：</span>
+          <span class="text-white border border-gray-600 px-2 bg-gray-800 uppercase">{post.author.name}</span>
+        </div>
+      </div>
+
+      <article class="max-w-none mb-12">
+        {/* 正文 HTML 已在构建期由 sanitize-html 消毒 */}
+        <div class="cyber-markdown text-gray-300 leading-relaxed font-sans max-w-full" set:html={post.content} />
+
+        {post.isGlitch && (
+          <div class="mt-8 p-4 border border-cyber-red/50 bg-cyber-red/5 flex items-start space-x-3">
+            <Icon name="alert-octagon" class="w-6 h-6 text-cyber-red flex-shrink-0" />
+            <p class="text-cyber-red text-sm font-mono m-0">警告：此内容已被 NetWatch 标记，查看可能导致神经接口保修失效。</p>
+          </div>
+        )}
+      </article>
+
+      <div class="flex flex-col md:flex-row items-center justify-between bg-gray-900 p-6 clip-corner border-l-4 border-cyber-cyan">
+        <div class="flex items-center space-x-6 mb-4 md:mb-0">
+          <span class="flex items-center space-x-2 text-gray-500" title="点赞功能即将上线">
+            <Icon name="thumbs-up" class="w-5 h-5" />
+            <span class="font-mono font-bold">{post.likes} 次点赞</span>
+          </span>
+          <span class="flex items-center space-x-2 text-gray-500" title="评论功能即将上线">
+            <Icon name="message-square" class="w-5 h-5" />
+            <span class="font-mono text-sm">评论功能建设中</span>
+          </span>
+        </div>
+
+        <div class="flex items-center space-x-4">
+          <span class="text-gray-500 font-mono text-xs uppercase">分享文章：</span>
+          <CyberButton variant="secondary" class="py-2 px-4" aria-label="分享文章" data-share-open="true">
+            <Icon name="share-2" class="w-4 h-4" />
+          </CyberButton>
+        </div>
+      </div>
+    </div>
+
+    <div class="max-w-4xl mx-auto px-4 md:px-8 pb-8">
+      <div class="flex flex-row justify-between gap-4">
+        {olderPost ? (
+          <a href={olderPost.permalink} class="flex-1 group">
+            <div class="border border-gray-800 bg-gray-900/50 p-4 hover:border-cyber-cyan transition-all h-full flex flex-col items-start relative overflow-hidden clip-corner">
+              <div class="absolute inset-0 bg-cyber-cyan/5 translate-x-[-100%] group-hover:translate-x-0 transition-transform duration-300"></div>
+              <span class="text-xs font-mono text-gray-500 mb-2 group-hover:text-cyber-cyan relative z-10 flex items-center"><Icon name="arrow-left" class="w-3 h-3 mr-1" /> 上一篇</span>
+              <span class="font-display text-lg text-white group-hover:text-cyber-yellow w-full text-left relative z-10">{olderPost.title}</span>
+            </div>
+          </a>
+        ) : (
+          <div class="flex-1 opacity-50 cursor-not-allowed select-none">
+            <div class="border border-gray-800 bg-gray-900/20 p-4 h-full flex flex-col items-start relative overflow-hidden clip-corner">
+              <span class="text-xs font-mono text-gray-600 mb-2 relative z-10 flex items-center"><Icon name="arrow-left" class="w-3 h-3 mr-1" /> 上一篇</span>
+              <span class="font-display text-lg text-gray-600 w-full text-left relative z-10">没有更早的文章</span>
+            </div>
+          </div>
+        )}
+
+        {newerPost ? (
+          <a href={newerPost.permalink} class="flex-1 group">
+            <div class="border border-gray-800 bg-gray-900/50 p-4 hover:border-cyber-cyan transition-all h-full flex flex-col items-end text-right relative overflow-hidden clip-corner">
+              <div class="absolute inset-0 bg-cyber-cyan/5 translate-x-[100%] group-hover:translate-x-0 transition-transform duration-300"></div>
+              <span class="text-xs font-mono text-gray-500 mb-2 group-hover:text-cyber-cyan relative z-10 flex items-center">下一篇 <Icon name="arrow-left" class="w-3 h-3 ml-1 rotate-180" /></span>
+              <span class="font-display text-lg text-white group-hover:text-cyber-yellow w-full text-right relative z-10">{newerPost.title}</span>
+            </div>
+          </a>
+        ) : (
+          <div class="flex-1 opacity-50 cursor-not-allowed select-none">
+            <div class="border border-gray-800 bg-gray-900/20 p-4 h-full flex flex-col items-end text-right relative overflow-hidden clip-corner">
+              <span class="text-xs font-mono text-gray-600 mb-2 relative z-10 flex items-center">下一篇 <Icon name="arrow-left" class="w-3 h-3 ml-1 rotate-180" /></span>
+              <span class="font-display text-lg text-gray-600 w-full text-right relative z-10">没有更新的文章</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+
+    <ShareModal title={post.title} url={currentUrl} />
+  </div>
+</BaseLayout>
+
+<script>
+  import '../../../../scripts/code-blocks.js';
+</script>

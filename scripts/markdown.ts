@@ -13,7 +13,7 @@ const marked = new Marked(
   })
 );
 
-export async function renderMarkdown(markdown: string): Promise<string> {
-  const html = await marked.parse(markdown, { async: false });
+export function renderMarkdown(markdown: string): string {
+  const html = marked.parse(markdown, { async: false });
   return sanitizeMarkdownHtml(typeof html === 'string' ? html : String(html));
 }

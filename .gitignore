@@ -2,6 +2,9 @@ output/
 # lib/ 存放共享源码（固定链接、列表查询），必须纳入版本库
 .vscode/
 
+# Astro 生成的类型缓存
+.astro/
+
 # 构建产物：文章源已纳入版本库，只有编译结果被忽略
 services/posts.json
 posts.json

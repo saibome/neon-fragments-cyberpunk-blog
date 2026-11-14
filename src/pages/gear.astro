@@ -1,0 +1,147 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import GlitchText from '../components/GlitchText.astro';
+
+const techStack = [
+  {
+    name: 'Astro',
+    type: '站点框架',
+    description: 'Astro 7 以静态优先的方式预渲染所有页面、订阅源与分享图，浏览器默认不加载框架运行时。',
+    stats: { performance: 99, stability: 98, complexity: 20 },
+    color: 'text-cyan-400',
+    borderColor: 'border-cyan-400',
+    bgColor: 'bg-cyan-400'
+  },
+  {
+    name: 'Vite',
+    type: '构建工具',
+    description: 'Astro 内置 Vite 8 工具链，负责资源打包、开发期 HMR 与 Tailwind 插件接入。',
+    stats: { speed: 99, efficiency: 95, bundleSize: 92 },
+    color: 'text-purple-400',
+    borderColor: 'border-purple-400',
+    bgColor: 'bg-purple-400'
+  },
+  {
+    name: 'Node.js',
+    type: '运行与自托管',
+    description: '构建与发布统一使用 Node.js 26；自托管时由一个零依赖的 node:http 静态服务提供页面。',
+    stats: { latency: 12, throughput: 96, footprint: 95 },
+    color: 'text-orange-400',
+    borderColor: 'border-orange-400',
+    bgColor: 'bg-orange-400'
+  },
+  {
+    name: 'Web APIs',
+    type: '交互层',
+    description: '搜索、分页、分享弹窗与代码块工具栏由原生 JavaScript 实现，不依赖前端框架与客户端路由。',
+    stats: { flexibility: 92, integration: 96, ux: 94 },
+    color: 'text-red-500',
+    borderColor: 'border-red-500',
+    bgColor: 'bg-red-500'
+  },
+  {
+    name: 'Tailwind CSS',
+    type: '样式',
+    description: 'Tailwind CSS 4 工具类配合自定义赛博朋克主题，通过 Vite 插件按需生成。',
+    stats: { customization: 98, size: 95, maintenance: 90 },
+    color: 'text-sky-400',
+    borderColor: 'border-sky-400',
+    bgColor: 'bg-sky-400'
+  },
+  {
+    name: 'Markdown',
+    type: '内容引擎',
+    description: '构建期把 Markdown 编译为 JSON，含代码高亮、zod frontmatter 校验与 HTML 消毒、UTC 固定链接。',
+    stats: { speed: 96, safety: 99, maintenance: 92 },
+    color: 'text-blue-400',
+    borderColor: 'border-blue-400',
+    bgColor: 'bg-blue-400'
+  }
+];
+
+const statLabels: Record<string, string> = {
+  performance: '性能',
+  stability: '稳定性',
+  complexity: '复杂度',
+  speed: '速度',
+  efficiency: '效率',
+  bundleSize: '打包体积',
+  latency: '延迟',
+  throughput: '吞吐量',
+  footprint: '资源占用',
+  flexibility: '灵活性',
+  integration: '集成度',
+  ux: '用户体验',
+  customization: '可定制性',
+  size: '体积',
+  maintenance: '可维护性',
+  safety: '安全性'
+};
+
+function serial(name: string): string {
+  const hash = Array.from(name).reduce((value, char) => ((value << 5) - value + char.charCodeAt(0)) >>> 0, 0);
+  return hash.toString(36).substring(0, 6).toUpperCase().padStart(6, '0');
+}
+---
+
+<BaseLayout
+  title="技术装备 | 霓虹碎片"
+  description="霓虹碎片博客使用的技术栈、构建工具与界面组件。"
+  canonicalPath="/gear"
+  activePath="/gear"
+>
+  <div class="min-h-[calc(100vh-100px)] p-4 md:p-8 text-white flex flex-col items-center relative overflow-hidden">
+    <div class="absolute inset-0 pointer-events-none">
+      <div class="absolute top-20 left-10 w-64 h-64 bg-cyber-cyan/5 rounded-full blur-3xl"></div>
+      <div class="absolute bottom-20 right-10 w-96 h-96 bg-cyber-red/5 rounded-full blur-3xl"></div>
+    </div>
+
+    <div class="max-w-7xl w-full mx-auto relative z-10">
+      <PageHeader title="技术装备" subtitle="系统完整性 // 100%" />
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 px-4">
+        {techStack.map(tech => (
+          <div class="relative group">
+            <div class:list={['absolute inset-0 border bg-transparent translate-x-1 translate-y-1 opacity-0 group-hover:opacity-70 transition-opacity duration-75 pointer-events-none z-0 mix-blend-screen', tech.borderColor]}></div>
+            <div class:list={['absolute inset-0 border bg-transparent -translate-x-1 -translate-y-1 opacity-0 group-hover:opacity-70 transition-opacity duration-75 pointer-events-none z-0 mix-blend-multiply', tech.borderColor]}></div>
+
+            <div class:list={['relative z-10 h-full bg-black/80 border p-6 overflow-hidden transition-all duration-200 group-hover:translate-x-[-2px] group-hover:translate-y-[-2px] group-hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,0.5)]', tech.borderColor]}>
+              <div class="absolute inset-0 opacity-10 pointer-events-none bg-[linear-gradient(45deg,transparent_25%,rgba(255,255,255,0.1)_25%,rgba(255,255,255,0.1)_50%,transparent_50%,transparent_75%,rgba(255,255,255,0.1)_75%,rgba(255,255,255,0.1)_100%)] bg-[size:4px_4px]"></div>
+              <div class:list={['absolute top-0 left-0 w-8 h-8 border-t-2 border-l-2 transition-all duration-300 group-hover:w-full group-hover:h-full group-hover:opacity-20', tech.borderColor]}></div>
+              <div class:list={['absolute bottom-0 right-0 w-8 h-8 border-b-2 border-r-2 transition-all duration-300 group-hover:w-full group-hover:h-full group-hover:opacity-20', tech.borderColor]}></div>
+
+              <div class="flex justify-between items-start mb-4 relative">
+                <h2 class:list={['text-3xl font-display font-bold tracking-tighter uppercase group-hover:animate-pulse', tech.color]}>
+                  <GlitchText text={tech.name} />
+                </h2>
+                <span class="text-[10px] font-mono bg-white/5 px-2 py-1 text-gray-400 border border-white/10 tracking-widest">{tech.type}</span>
+              </div>
+
+              <div class="relative mb-6">
+                <div class:list={['absolute -left-6 top-0 bottom-0 w-1 opacity-50', tech.bgColor]}></div>
+                <p class="text-gray-400 font-mono text-sm leading-relaxed pl-2">{tech.description}</p>
+              </div>
+
+              <div class="space-y-4 mt-auto">
+                {Object.entries(tech.stats).map(([key, value]) => (
+                  <div class="group/stat">
+                    <div class="flex justify-between text-[10px] font-mono uppercase text-gray-500 mb-1 tracking-wider">
+                      <span>{statLabels[key]}</span>
+                      <span class={tech.color}>{value}%</span>
+                    </div>
+                    <div class="h-2 bg-gray-900 w-full relative overflow-hidden border border-gray-800">
+                      <div class:list={['absolute top-0 left-0 h-full transition-all duration-1000 ease-out group-hover:w-full', tech.bgColor]} style={`width: ${value}%; opacity: .8`}></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div class="absolute bottom-2 right-2 text-[8px] font-mono text-gray-600 opacity-50">编号：{serial(tech.name)}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+</BaseLayout>

@@ -44,7 +44,7 @@ async function buildContent(): Promise<void> {
       title: fm.title,
       slug: fm.slug,
       permalink,
-      content: await renderMarkdown(fm.markdown),
+      content: renderMarkdown(fm.markdown),
       description: fm.description,
       image: fm.image,
       date: fm.date,

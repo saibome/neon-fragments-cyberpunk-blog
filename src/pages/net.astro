@@ -1,0 +1,23 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import CyberTagGrid from '../components/CyberTagGrid.astro';
+import { getTagCounts } from '../lib/posts';
+
+const tags = getTagCounts();
+---
+
+<BaseLayout
+  title="网络 | 霓虹碎片"
+  description="浏览霓虹碎片的全部文章标签，按主题检索代码、设计与城市观察。"
+  canonicalPath="/net"
+  activePath="/net"
+>
+  <div class="min-h-[calc(100vh-100px)] p-4 md:p-8 flex flex-col items-center">
+    <PageHeader title="网络" subtitle="全局数据聚合 // 标签矩阵" />
+    <div class="w-full flex-grow flex flex-col items-center justify-start relative">
+      <div class="absolute inset-0 bg-[linear-gradient(to_right,#083344_1px,transparent_1px),linear-gradient(to_bottom,#083344_1px,transparent_1px)] bg-[size:40px_40px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-20 pointer-events-none fixed"></div>
+      <CyberTagGrid tags={tags} />
+    </div>
+  </div>
+</BaseLayout>

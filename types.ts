@@ -33,14 +33,6 @@ export interface PostListResult {
   queryKey: string;
 }
 
-export interface InitialData {
-  posts: BlogPost[];
-  list?: PostListResult;
-  resolvedSlug?: string;
-  /** 由服务端注入，保证 SSR 与浏览器使用同一个站点地址 */
-  siteUrl: string;
-}
-
 export interface UserProfile {
   name: string;
   handle: string;

@@ -1,0 +1,14 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import PostList from '../components/PostList.astro';
+import { posts } from '../lib/posts';
+---
+
+<BaseLayout
+  title="霓虹碎片 | NEON FRAGMENTS"
+  description="记录代码、设计、装备与夜之城灵感的赛博朋克博客。"
+  canonicalPath="/"
+  activePath="/"
+>
+  <PostList posts={posts} />
+</BaseLayout>

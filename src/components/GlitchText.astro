@@ -1,0 +1,15 @@
+---
+interface Props {
+  text: string;
+  as?: 'h1' | 'h2' | 'h3' | 'span' | 'div';
+  class?: string;
+}
+
+const { text, as: Tag = 'span', class: className = '' } = Astro.props;
+---
+
+<Tag class:list={['relative inline-block group', className]}>
+  <span class="relative z-10">{text}</span>
+  <span aria-hidden="true" class="absolute top-0 left-0 -z-10 w-full h-full text-cyber-red opacity-0 group-hover:opacity-70 group-hover:translate-x-[2px] transition-all duration-75 select-none">{text}</span>
+  <span aria-hidden="true" class="absolute top-0 left-0 -z-10 w-full h-full text-cyber-cyan opacity-0 group-hover:opacity-70 group-hover:-translate-x-[2px] transition-all duration-75 select-none">{text}</span>
+</Tag>

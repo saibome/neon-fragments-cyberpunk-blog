@@ -1,0 +1,18 @@
+---
+import GlitchText from './GlitchText.astro';
+
+interface Props {
+  title: string;
+  subtitle?: string;
+}
+
+const { title, subtitle = '系统消息 // 本区域建设中' } = Astro.props;
+---
+
+<div class="text-center mb-8 w-full max-w-4xl mx-auto">
+  <h1 class="text-4xl md:text-6xl font-display font-bold text-white mb-2 tracking-tighter">
+    <GlitchText text={title} />
+  </h1>
+  <div class="h-1 w-24 bg-cyber-yellow mx-auto mb-4"></div>
+  <p class="text-cyber-cyan font-mono text-sm md:text-base tracking-widest">{subtitle}</p>
+</div>
