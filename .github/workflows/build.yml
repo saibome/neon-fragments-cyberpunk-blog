@@ -15,36 +15,29 @@ jobs:
       contents: write
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
-    - name: Install pnpm
-      uses: pnpm/action-setup@v4
+    - name: Setup bun
+      uses: oven-sh/setup-bun@v2
       with:
-        version: 12.18.0
-        run_install: false
-
-    - name: Use Node.js 26
-      uses: actions/setup-node@v4
-      with:
-        node-version: '26'
-        cache: 'pnpm'
+        bun-version: 1.4.4
 
     - name: Install dependencies
-      run: pnpm install --frozen-lockfile
+      run: bun install --frozen-lockfile
 
     - name: Quality gates
-      run: pnpm build:content && pnpm typecheck && pnpm lint && pnpm test
+      run: bun run build:content && bun run typecheck && bun run lint && bun run test
 
     - name: Build static site
-      run: pnpm build
+      run: bun run build
 
     - name: Verify EdgeOne deployment readiness
-      run: pnpm check:edgeone
+      run: bun run check:edgeone
 
     - name: Prepare Release Artifact
       run: |
         mkdir -p release/scripts release/services
-        cp package.json pnpm-lock.yaml pnpm-workspace.yaml Dockerfile edgeone.json release/
+        cp package.json bun.lock Dockerfile edgeone.json release/
         cp scripts/serve.mjs release/scripts/serve.mjs
         cp -r dist release/
         cp services/posts.json release/services/posts.json
@@ -55,13 +48,13 @@ jobs:
         zip -r ../release.zip .
 
     - name: Upload Artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: release-package
         path: release.zip
 
     - name: Create Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: release.zip
@@ -75,7 +68,7 @@ jobs:
         git push -f origin latest
 
     - name: Update Latest Release
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       if: github.ref == 'refs/heads/main'
       with:
         tag_name: latest

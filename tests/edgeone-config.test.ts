@@ -12,15 +12,31 @@ const load = (relative: string) =>
 
 const config = JSON.parse(read('edgeone.json'));
 
-test('edgeone.json 声明静态产物、pnpm 安装命令与预装 Node 版本', () => {
+test('edgeone.json 声明 bun 构建命令与预装 Node 版本', () => {
   assert.equal(config.outputDirectory, 'dist');
-  assert.match(config.buildCommand, /pnpm build/);
-  assert.match(config.installCommand, /pnpm@12\.18\.0/);
-  assert.match(config.installCommand, /--frozen-lockfile/);
-  assert.equal(config.nodeVersion, '24.5.0', 'Astro 7 要求 >=22.23.4，22.x 预装版本过低');
+  assert.match(config.buildCommand, /^bun run build/);
+  assert.match(config.installCommand, /bun@1\.4\.4/);
+  assert.match(config.installCommand, /bun install --frozen-lockfile/);
+  assert.equal(config.nodeVersion, '24.5.0', '用于安装 bun 的 npm 环境必须是平台预装版本');
   assert.ok(['24.5.0', '24.11.0', '24.18.0'].includes(config.nodeVersion), '必须是平台预装版本');
+  assert.equal(config.cloudFunctions.maxDuration, 10);
+  assert.equal(config.cloudFunctions.nodejs, undefined, 'nodejs.maxDuration 已被平台弃用');
   assert.ok(config.rewrites.length <= 100);
   assert.ok(config.headers.length <= 30);
+});
+
+test('包管理器、锁文件与脚本统一使用 bun', () => {
+  const pkg = JSON.parse(read('package.json'));
+  assert.equal(pkg.packageManager, 'bun@1.4.4');
+  assert.equal(pkg.engines.bun, '>=1.4.4');
+  assert.match(pkg.scripts.build, /bun run --bun astro build/);
+  assert.match(pkg.scripts['build:content'], /^bun scripts\/build-content\.ts$/);
+  assert.match(pkg.scripts.test, /^bun test/);
+  assert.equal(pkg.devDependencies.tsx, undefined, 'bun 原生执行 TypeScript，不需要 tsx');
+  assert.ok(fs.existsSync(path.join(root, 'bun.lock')), '缺少 bun.lock');
+  for (const legacy of ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json', 'yarn.lock']) {
+    assert.equal(fs.existsSync(path.join(root, legacy)), false, `不应存在 ${legacy}`);
+  }
 });
 
 test('clean URL 兜底规则指向已生成的平铺页面', () => {
@@ -31,13 +47,14 @@ test('clean URL 兜底规则指向已生成的平铺页面', () => {
   }
 });
 
-test('根目录不提交 .nvmrc，本地 Node 26 只作为模板提供', () => {
-  assert.ok(read('.nvmrc.example').trim().startsWith('26'));
+test('根目录不提交 .nvmrc，且 .gitignore 忽略它', () => {
   const tracked = execFileSync('git', ['ls-files', '--', '.nvmrc'], {
     cwd: root,
     encoding: 'utf8'
   }).trim();
   assert.equal(tracked, '', '提交 .nvmrc 会让 EdgeOne 切换非预装版本并直接构建失败');
+  assert.match(read('.gitignore'), /^\.nvmrc$/m);
+  assert.equal(fs.existsSync(path.join(root, '.nvmrc.example')), false);
 });
 
 test('package.json 的 engines 允许 EdgeOne 的 Node 24.5.0', () => {
@@ -80,7 +97,7 @@ test('data.js 与文章源数据保持同步', async () => {
     `${post.slug}|${post.permalink}`).sort();
   const actual = data.posts.map((post: { slug: string; permalink: string }) =>
     `${post.slug}|${post.permalink}`).sort();
-  assert.deepEqual(actual, expected, '改动 _posts/ 后需重新 pnpm build 并提交 data.js');
+  assert.deepEqual(actual, expected, '改动 _posts/ 后需重新 bun run build 并提交 data.js');
   assert.ok(data.siteUrl.startsWith('https://'));
   assert.ok(Array.isArray(data.tagCounts));
 });

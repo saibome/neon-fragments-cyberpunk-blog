@@ -3,26 +3,29 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "packageManager": "pnpm@12.18.0",
+  "packageManager": "bun@1.4.4",
   "engines": {
     "node": ">=22.23.4",
-    "pnpm": ">=12"
+    "bun": ">=1.4.4"
   },
+  "trustedDependencies": [
+    "esbuild"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/saibome/neon-fragments-cyberpunk-blog.git"
   },
   "scripts": {
-    "dev": "pnpm build:content && astro dev --port 3000 --host 0.0.0.0",
-    "build:content": "tsx scripts/build-content.ts",
-    "build": "pnpm build:content && astro build && node scripts/postbuild.mjs",
-    "build:edgeone": "pnpm build && pnpm check:edgeone",
-    "check:edgeone": "node scripts/check-edgeone.mjs",
-    "start": "node scripts/serve.mjs",
-    "preview": "node scripts/serve.mjs",
-    "typecheck": "astro check",
+    "dev": "bun scripts/build-content.ts && bun run --bun astro dev --port 3000 --host 0.0.0.0",
+    "build:content": "bun scripts/build-content.ts",
+    "build": "bun scripts/build-content.ts && bun run --bun astro build && bun scripts/postbuild.mjs",
+    "build:edgeone": "bun run build && bun run check:edgeone",
+    "check:edgeone": "bun scripts/check-edgeone.mjs",
+    "start": "bun scripts/serve.mjs",
+    "preview": "bun scripts/serve.mjs",
+    "typecheck": "bun run --bun astro check",
     "lint": "oxlint . --ignore-pattern=.astro",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "bun test tests"
   },
   "dependencies": {
     "@resvg/resvg-js": "^2.6.2",
@@ -44,7 +47,6 @@
     "oxlint": "^1.93.0",
     "sanitize-html": "^2.18.2",
     "tailwindcss": "^4.3.5",
-    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "vite": "^8.3.8",
     "zod": "^4.6.7"

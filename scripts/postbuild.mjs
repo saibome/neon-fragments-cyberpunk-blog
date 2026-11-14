@@ -35,7 +35,7 @@ function computeTagCounts(list) {
 // EdgeOne 兜底函数的数据源
 await fs.mkdir(FUNCTIONS_DIR, { recursive: true });
 const dataModule = [
-  '// 由 pnpm build（scripts/postbuild.mjs）生成，请勿手工编辑',
+  '// 由 bun run build（scripts/postbuild.mjs）生成，请勿手工编辑',
   `export const siteUrl = ${JSON.stringify(SITE_URL)};`,
   `export const posts = ${escapeForScript(JSON.stringify(posts))};`,
   `export const tagCounts = ${escapeForScript(JSON.stringify(computeTagCounts(posts)))};`,

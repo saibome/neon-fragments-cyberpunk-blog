@@ -1,8 +1,8 @@
 /**
  * EdgeOne Pages 部署前自检。
  *
- * 在 pnpm build 之后运行，验证：项目配置符合平台约束、dist/ 产物完整、
- * Cloud Functions 的 data.js 与文章数据同步、函数入口可被平台识别。
+ * 在 bun run build 之后运行，验证：项目配置符合平台约束、bun 工具链完整、
+ * dist/ 产物完整、Cloud Functions 的 data.js 与文章数据同步、函数入口可被平台识别。
  * 任何一项失败都以非零退出码结束，便于 CI 卡住有问题的构建。
  */
 import { execFileSync } from 'node:child_process';
@@ -16,8 +16,8 @@ const problems = [];
 const notes = [];
 
 // EdgeOne Pages 只提供预装 Node；.nvmrc 里的非预装版本会在安装依赖前
-// 直接报 "Failed to switch to Node.js x"。Astro 7 要求 >=22.23.4，
-// 22.x 预装版本都过低，因此云端锁定 24.5.0。
+// 直接报 "Failed to switch to Node.js x"。云端保留 24.5.0 是为了给
+// npm i -g bun 提供 npm，实际构建由 bun 运行时（模拟 Node 26.3.0）完成。
 const PREINSTALLED_NODE_VERSIONS = [
   '14.21.3', '16.20.2', '18.20.4', '20.18.0',
   '22.11.0', '22.17.1', '22.21.1',
@@ -40,7 +40,7 @@ const exists = relative => fs.existsSync(path.join(DIST, relative));
 const load = async relative =>
   import(pathToFileURL(path.join(ROOT, relative)).href);
 
-// 1. edgeone.json：云端 Node 必须是平台预装且满足 Astro 7 的版本
+// 1. edgeone.json：云端 Node 必须是平台预装版本，构建命令锁定 bun
 let config;
 try {
   config = JSON.parse(fs.readFileSync(path.join(ROOT, 'edgeone.json'), 'utf8'));
@@ -50,16 +50,20 @@ try {
 
 if (config) {
   if (config.outputDirectory !== 'dist') fail('edgeone.json 的 outputDirectory 必须是 dist');
-  if (typeof config.buildCommand !== 'string' || !config.buildCommand.includes('build')) {
-    fail('edgeone.json 缺少有效的 buildCommand');
+  if (!String(config.buildCommand ?? '').startsWith('bun run build')) {
+    fail('edgeone.json 的 buildCommand 必须是 bun run build');
   }
-  if (!config.installCommand?.includes('pnpm@12.18.0')) {
-    fail('installCommand 必须显式安装 pnpm 12.18.0（平台预装 pnpm 仅到 9）');
+  if (!config.installCommand?.includes('bun@1.4.4') ||
+      !config.installCommand.includes('bun install --frozen-lockfile')) {
+    fail('installCommand 必须固定安装 bun 1.4.4 并执行 bun install --frozen-lockfile');
   }
   if (!PREINSTALLED_NODE_VERSIONS.includes(config.nodeVersion)) {
     fail('edgeone.json 的 nodeVersion 必须是平台预装的 Node 版本');
   } else if (config.nodeVersion !== EDGEONE_NODE_VERSION) {
-    fail(`edgeone.json 的 nodeVersion 应为 ${EDGEONE_NODE_VERSION}（Astro 7 要求 >=22.23.4）`);
+    fail(`edgeone.json 的 nodeVersion 应为 ${EDGEONE_NODE_VERSION}（用于安装 bun 的 npm 环境）`);
+  }
+  if (config.cloudFunctions?.maxDuration === undefined) {
+    fail('cloudFunctions.maxDuration 缺失（平台已弃用 cloudFunctions.nodejs.maxDuration）');
   }
   if (config.rewrites?.length > 100) fail('rewrites 超过平台上限 100 条');
   if (config.headers?.length > 30) fail('headers 超过平台上限 30 条');
@@ -72,22 +76,28 @@ if (config) {
       fail(`rewrite 目标不存在：${rule.source} → ${rule.destination}`);
     }
   }
-  notes.push(`云端构建 Node：${config.nodeVersion}（本地 / CI / Docker 仍为 26）`);
+  notes.push(`云端构建：bun 1.4.4（平台预装 Node ${config.nodeVersion} 仅用于安装 bun）`);
 }
 
-// package.json 的 engines 不能把云端 24.5.0 挡在门外
+// package.json / 锁文件：必须保持 bun 技术栈，且 engines 不挡住云端 Node
 try {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
   const minNode = String(pkg.engines?.node ?? '').match(/^>=\s*(\d+(?:\.\d+){0,2})/)?.[1];
   if (!minNode || !atMost(minNode, EDGEONE_NODE_VERSION)) {
-    fail('package.json#engines.node 必须允许 EdgeOne 的 Node 24.5.0（写 >=26 会让依赖安装报错）');
+    fail('package.json#engines.node 必须允许 EdgeOne 的 Node 24.5.0');
+  }
+  if (pkg.packageManager !== 'bun@1.4.4') {
+    fail('package.json#packageManager 必须是 bun@1.4.4');
+  }
+  if (!fs.existsSync(path.join(ROOT, 'bun.lock'))) fail('缺少 bun.lock（请先执行 bun install）');
+  for (const legacy of ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package-lock.json', 'yarn.lock']) {
+    if (fs.existsSync(path.join(ROOT, legacy))) fail(`发现旧包管理器文件：${legacy}`);
   }
 } catch (error) {
   fail(`package.json 无法解析：${error.message}`);
 }
 
 // 根目录 .nvmrc 一旦提交，EdgeOne 会优先按它切换版本，非预装版本直接构建失败。
-// 本地 cp .nvmrc.example .nvmrc 不受影响（该文件已被 .gitignore 忽略）。
 let trackedNvmrc = '';
 try {
   trackedNvmrc = execFileSync('git', ['ls-files', '--', '.nvmrc'], {
@@ -99,7 +109,7 @@ try {
   // 非 Git 工作区（例如 release.zip）没有索引，跳过跟踪检查
 }
 if (trackedNvmrc) {
-  fail('.nvmrc 不能提交：EdgeOne 会按它切换非预装的 Node 26 并在安装依赖前失败');
+  fail('.nvmrc 不能提交：EdgeOne 会按它切换非预装的 Node 版本并在安装依赖前失败');
 }
 
 // 2. 静态产物
@@ -150,7 +160,7 @@ if (data) {
   const expected = posts.map(post => `${post.slug}|${post.permalink}`).sort();
   const actual = (data.posts ?? []).map(post => `${post.slug}|${post.permalink}`).sort();
   if (JSON.stringify(expected) !== JSON.stringify(actual)) {
-    fail('cloud-functions/data.js 与 services/posts.json 不一致，请重新执行 pnpm build');
+    fail('cloud-functions/data.js 与 services/posts.json 不一致，请重新执行 bun run build');
   }
   if (!Array.isArray(data.tagCounts)) fail('cloud-functions/data.js 缺少 tagCounts');
 

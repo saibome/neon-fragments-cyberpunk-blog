@@ -1,6 +1,6 @@
 {
-  "installCommand": "npm i -g pnpm@12.18.0 && pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm build",
+  "installCommand": "npm i -g bun@1.4.4 && bun install --frozen-lockfile",
+  "buildCommand": "bun run build",
   "outputDirectory": "dist",
   "nodeVersion": "24.5.0",
   "headers": [
@@ -30,8 +30,6 @@
     { "source": "/gear", "destination": "/gear.html" }
   ],
   "cloudFunctions": {
-    "nodejs": {
-      "maxDuration": 10
-    }
+    "maxDuration": 10
   }
 }

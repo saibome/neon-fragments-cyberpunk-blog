@@ -1,28 +1,29 @@
 # 霓虹碎片 / Neon Fragments
 
-赛博朋克风格的静态博客，基于 **Astro 7**。**没有 React、没有 Hono、没有 SSR 运行时**：Markdown 在构建期编译成 JSON，Astro 把页面、订阅源、API JSON 与分享图全部预渲染到 `dist/`；浏览器里的少量交互由原生 JavaScript 完成。
+赛博朋克风格的静态博客，基于 **Astro 7 + bun**。**没有 React、没有 Hono、没有 SSR 运行时**：Markdown 在构建期编译成 JSON，Astro 把页面、订阅源、API JSON 与分享图全部预渲染到 `dist/`；浏览器里的少量交互由原生 JavaScript 完成。
 
 ## 运行环境
 
 | 项目 | 版本 | 约定位置 |
 | :--- | :--- | :--- |
-| Node.js（本地 / CI / Docker） | 26 | `.nvmrc.example`、CI `setup-node`、Dockerfile |
-| Node.js（EdgeOne Pages 云端构建） | 24.5.0 | `edgeone.json#nodeVersion`（平台预装版本） |
-| Node.js 最低要求 | 22.23.4 | Astro 7.4.x 的 `engines`、`package.json#engines` |
-| pnpm | 12.18.0 | `package.json#packageManager`、`pnpm-lock.yaml` |
-| Astro | 7.4.x | `astro.config.mjs` |
+| bun | 1.4.4 | `package.json#packageManager`、`bun.lock`、CI `setup-bun`、Dockerfile |
+| bun 运行时兼容的 Node | 26.3.0 | bun 1.4.4 内置；满足 Astro 7 的 `>=22.23.4` |
+| EdgeOne Pages 云端 Node | 24.5.0 | `edgeone.json#nodeVersion`（平台预装，仅为安装 bun 提供 npm） |
+| Astro | 7.4.12 | `astro.config.mjs` |
+| TypeScript | 6.0.3 | `@astrojs/check` 的 peer 只允许 5/6，7.x 暂不能升 |
 
-本地开发与交付链路统一用 Node 26；EdgeOne Pages 只提供预装 Node（官方清单含 `24.5.0`），且 Astro 7 要求 `>=22.23.4`（22.x 预装版本都过低），所以云端构建锁定 `24.5.0`。**仓库根目录不提交 `.nvmrc`**：EdgeOne 会优先按它切换版本，写 26 会在安装依赖前直接报 `Failed to switch to Node.js 26`。本地需要固定版本时执行 `cp .nvmrc.example .nvmrc && nvm use`，该本地文件已被 `.gitignore` 忽略。
+仓库只使用 bun：包管理、TypeScript 执行（`bun scripts/*.ts`）、测试（`bun test`）、CI 与 Docker 运行时全部由 bun 提供，`bun.lock` 是唯一锁文件。Astro CLI 通过 `bun run --bun` 强制在 bun 运行时执行（否则 `#!/usr/bin/env node` 会落到系统 Node；bun 模拟 Node 26.3.0，满足 Astro 7）。不要再引入 pnpm / npm / yarn 的锁文件。
 
-仓库只使用 pnpm，请不要用 `npm ci` / `yarn install`。
+**依赖基线（2026-11-15）**：全部依赖已对齐到 registry 最新版（astro 7.4.12、vite 8.3.8、tailwindcss 4.3.5、marked 18.2.0、zod 4.6.7、satori 0.63.2、oxlint 1.93.0、@types/node 26.6.6 等）。唯一例外是 TypeScript 停留在 6.x 最新的 6.0.3：`@astrojs/check@0.9.12` 的 peer 是 `^5 || ^6`，升级到 7.0.2 会让 `astro check` 失效。`tsx` 已移除，bun 原生执行 TypeScript。
+
+EdgeOne Pages 只提供预装 Node（官方清单含 `24.5.0`），因此根目录**不提交 `.nvmrc`**：平台会优先按它切换版本，写非预装版本会在安装依赖前报 `Failed to switch to Node.js x`。云端仍保留 `nodeVersion: 24.5.0`，只用于 `npm i -g bun@1.4.4`；实际构建由 bun 运行时完成，不依赖平台 Node 版本。
 
 ```bash
-nvm install 26 && nvm use 26   # 或 cp .nvmrc.example .nvmrc && nvm use
-pnpm install
+bun install
 cp .env.example .env.local   # 可选：设置 SITE_URL
-pnpm dev                     # http://localhost:3000，启动前自动编译内容
-pnpm build                   # build:content → astro build → postbuild
-pnpm start                   # 用零依赖静态服务托管 dist/
+bun run dev                  # http://localhost:3000，启动前自动编译内容
+bun run build                # build:content → astro build → postbuild
+bun run start                # 用零依赖静态服务托管 dist/
 ```
 
 ## 架构
@@ -85,8 +86,8 @@ isGlitch: true
 | `id` | `string` | 唯一标识 | slug |
 
 ```bash
-pnpm build:content   # 只重编译内容
-pnpm build           # 重新生成页面与分享图
+bun run build:content   # 只重编译内容
+bun run build           # 重新生成页面与分享图
 ```
 
 ## 部署
@@ -95,26 +96,26 @@ pnpm build           # 重新生成页面与分享图
 
 ### 自托管 / Docker
 
-`scripts/serve.mjs` 是一个零依赖的 `node:http` 静态服务：分发 `dist/`、处理 `/api/*` 动态查询、错误日期 301 与 404 兜底。
+`scripts/serve.mjs` 是一个零依赖的 `node:http` 静态服务（bun 兼容该 API）：分发 `dist/`、处理 `/api/*` 动态查询、错误日期 301 与 404 兜底。
 
 ```bash
-pnpm build
-SITE_URL=https://your.domain pnpm build   # 用正式域名重建
-PORT=3000 pnpm start
+bun run build
+SITE_URL=https://your.domain bun run build   # 用正式域名重建
+PORT=3000 bun run start
 
 docker build --build-arg SITE_URL=https://your.domain -t neon-fragments .
 docker run -p 3000:3000 neon-fragments
 ```
 
-GitHub Actions 在 push / PR 上以 Node 26 + `pnpm install --frozen-lockfile` 执行 `build:content → typecheck → lint → test → build`，并把 `dist/`、`scripts/serve.mjs` 与**真实文章数据**打进 `release.zip`。解压后无需安装依赖：
+Docker 两个阶段都用 `oven/bun:1.4.4-slim`，不需要 Node 镜像。GitHub Actions 在 push / PR 上以 bun 1.4.4 + `bun install --frozen-lockfile` 执行 `build:content → typecheck → lint → test → build`，并把 `dist/`、`scripts/serve.mjs` 与**真实文章数据**打进 `release.zip`。解压后无需安装依赖：
 
 ```bash
-node scripts/serve.mjs
+bun scripts/serve.mjs   # 或 node scripts/serve.mjs，服务本身零依赖
 ```
 
 ### 腾讯云 EdgeOne Pages（静态资源 + Cloud Functions）
 
-仓库已提交 `edgeone.json`，构建参数不需要在控制台手填。Astro 产出完整静态站点，`pnpm build` 同时生成 `cloud-functions/data.js`（函数数据源）与平铺 `.html` 副本（clean URL 兜底）。
+仓库已提交 `edgeone.json`，构建参数不需要在控制台手填。Astro 产出完整静态站点，`bun run build` 同时生成 `cloud-functions/data.js`（函数数据源）与平铺 `.html` 副本（clean URL 兜底）。
 
 控制台（国内站 `https://console.cloud.tencent.com/edgeone/pages`）：
 
@@ -127,28 +128,30 @@ node scripts/serve.mjs
 | 配置项 | 值 | 说明 |
 | :--- | :--- | :--- |
 | 根目录 | `./`（默认） | 仓库根 |
-| 安装命令 | `npm i -g pnpm@12.18.0 && pnpm install --frozen-lockfile` | 平台预装 pnpm 仅到 9，必须显式安装 12 |
-| 构建命令 | `pnpm build` | `pnpm build:edgeone` 是「构建 + 自检」别名 |
+| 安装命令 | `npm i -g bun@1.4.4 && bun install --frozen-lockfile` | 平台预装 Node 24.5.0 自带 npm；固定 bun 版本后按 `bun.lock` 安装，避免平台预装 bun 版本过旧 |
+| 构建命令 | `bun run build` | `bun run build:edgeone` 是「构建 + 自检」别名 |
 | 输出目录 | `dist` | Astro 静态产物 |
-| Node.js 版本 | `nodeVersion: 24.5.0` | 平台只支持预装版本（14.21.3 / 16.20.2 / 18.20.4 / 20.18.0 / 22.x / 24.5.0 等）；Astro 7 要求 ≥22.23.4，22.x 预装版本都过低。根目录**不提交 `.nvmrc`**，否则平台会尝试切换到 26 并在安装依赖前失败；本地 / CI / Docker 仍用 26 |
+| Node.js 版本 | `nodeVersion: 24.5.0` | 平台只支持预装版本（14.21.3 / 16.20.2 / 18.20.4 / 20.18.0 / 22.x / 24.5.0 等）。该版本仅为安装 bun 提供 npm，实际构建由 bun 运行时（模拟 Node 26.3.0）完成；根目录**不提交 `.nvmrc`** |
 | 缓存 / 安全头 | `/_astro/*`、`/fonts/*` 长缓存；全局 nosniff、Referrer-Policy | HTML 不设长缓存，避免更新后读到旧页 |
 | clean URL 兜底 | `/net`、`/data`、`/gear` → 同名 `.html` | 兼容平台不自动展开目录索引的情况 |
-| 函数时长 | `cloudFunctions.nodejs.maxDuration: 10` | 函数只做 JSON 查询 |
+| 函数时长 | `cloudFunctions.maxDuration: 10` | 函数只做 JSON 查询；已按平台提示从弃用的 `cloudFunctions.nodejs.maxDuration` 迁移 |
+
+若云端 `npm i -g` 被网络策略拦截，可在控制台把安装命令临时改为 `bun install --frozen-lockfile`，直接使用平台预装的 bun（需确认其版本能读取文本格式的 `bun.lock`）。
 
 函数入口在仓库根 `cloud-functions/`：`[[default]].js` 是 catch-all（动态 `/api/*`、错误日期 301、404 兜底），另加 `api/posts.js`、`api/tags.js`、`api/posts/[slug].js` 三条明确路由，避免平台未识别 catch-all 时核心接口失效。所有入口都导出 `onRequest` 与 `default`，逻辑集中在 `_lib/handler.js`；函数运行时为平台 Node 20，代码只用 Web 标准 API，不依赖 Node 内置模块或 npm 包。**静态资源优先于函数**，因此页面、feed、图片都直接命中 `dist/`。
 
 部署前可本地验证：
 
 ```bash
-pnpm build:edgeone   # 构建并执行 scripts/check-edgeone.mjs
-pnpm check:edgeone   # 只自检：产物完整性、data.js 与文章同步、函数入口、云端 Node 版本配置
+bun run build:edgeone   # 构建并执行 scripts/check-edgeone.mjs
+bun run check:edgeone   # 只自检：产物完整性、data.js 与文章同步、函数入口、bun 工具链配置
 ```
 
-`check:edgeone` 会卡住三类易复发的云端问题：`edgeone.json` 的 `nodeVersion` 不是预装版本、`package.json#engines` 挡住 24.5.0、根目录误提交 `.nvmrc`。
+`check:edgeone` 会卡住易复发的云端问题：`nodeVersion` 不是预装版本、`engines` 挡住 24.5.0、误提交 `.nvmrc`、`bun.lock` 缺失或安装/构建命令回退到 pnpm、`cloudFunctions` 使用弃用字段。
 
-CI 也会在每次 push 后执行 `pnpm check:edgeone`。改动 `_posts/` 后请本地跑一次 `pnpm build` 并提交更新后的 `cloud-functions/data.js`。
+CI 也会在每次 push 后执行 `bun run check:edgeone`。改动 `_posts/` 后请本地跑一次 `bun run build` 并提交更新后的 `cloud-functions/data.js`。
 
-> 重新部署后若日志仍出现 `Failed to switch to Node.js 26`：确认推送后的仓库根目录已无 `.nvmrc`，把「项目设置 → Node.js 版本」确认为 `24.5.0`，并关闭「使用构建缓存」做一次无缓存部署（旧缓存可能残留上一版的 `.nvmrc`）。配置改动只在下一次部署生效，保存设置本身不会触发构建。
+> 重新部署后若日志仍出现 `Failed to switch to Node.js x`：确认推送后的仓库根目录已无 `.nvmrc`，把「项目设置 → Node.js 版本」确认为 `24.5.0`，并关闭「使用构建缓存」做一次无缓存部署（旧缓存可能残留上一版的 `.nvmrc`）。配置改动只在下一次部署生效，保存设置本身不会触发构建。
 
 首次部署后建议逐项核验：首页 `/`、文章页 `/YYYY/MM/DD/slug`、静态页 `/net`、`/api/posts?limit=1`（JSON）、`/api/tags`、`/rss.xml`、`/card/YYYY/MM/DD/slug.png`（PNG）、错误日期 `/2099/01/01/<slug>`（301 到规范链接）、未知页（404）。若文章页 404，检查平台是否自动展开 `目录/index.html`（仓库同时提供了 `/YYYY/MM/DD/slug.html` 平铺副本），必要时在 `edgeone.json` 的 `rewrites` 中补对应规则；若 `/api/*` 返回 HTML 404，说明函数目录未被识别，请查看构建日志中的 Cloud Functions 编译结果。
 
@@ -166,11 +169,11 @@ CI 也会在每次 push 后执行 `pnpm check:edgeone`。改动 `_posts/` 后请
 ## 质量卡口
 
 ```bash
-pnpm typecheck       # astro check：检查 .astro / .ts / .tsx
-pnpm lint            # oxlint（忽略 .astro 生成的类型缓存）
-pnpm test            # node:test：永久链接、内容校验、列表查询、Cloud Function、EdgeOne 配置
-pnpm build           # 完整静态构建
-pnpm check:edgeone   # EdgeOne 部署前自检（CI 亦会执行）
+bun run typecheck       # astro check（bun 运行时）：检查 .astro / .ts / .tsx
+bun run lint            # oxlint（忽略 .astro 生成的类型缓存）
+bun run test            # bun test：永久链接、内容校验、列表查询、Cloud Function、EdgeOne 配置
+bun run build           # 完整静态构建
+bun run check:edgeone   # EdgeOne 部署前自检（CI 亦会执行）
 ```
 
 ## 目录
@@ -182,11 +185,12 @@ pnpm check:edgeone   # EdgeOne 部署前自检（CI 亦会执行）
 - `src/lib/` — 文章数据、站点地址、订阅源、OG 图（构建期）
 - `src/data/icons.json` — 从 lucide（ISC License）提取的静态 SVG 图标，运行时不加载图标库
 - `src/styles/global.css` — Tailwind 4 主题与赛博朋克样式
-- `scripts/` — 内容编译、环境变量、静态服务、构建后处理、EdgeOne 部署自检
+- `scripts/` — bun 脚本：内容编译、环境变量、静态服务、构建后处理、EdgeOne 部署自检
 - `cloud-functions/` — EdgeOne Pages 函数入口、`_lib/handler.js` 与生成的数据模块
 - `edgeone.json` — EdgeOne Pages 项目配置（构建命令、输出目录、缓存头、clean URL 规则）
+- `bun.lock` — 唯一锁文件，CI / Docker / EdgeOne 均按 frozen 模式安装
 - `lib/` `config.ts` `types.ts` — 前后端共用的纯函数与类型
-- `tests/` — 单元测试
+- `tests/` — 单元测试（bun test 直接执行 TypeScript）
 - `dist/` — 静态站点产物
 
 ## 取舍
@@ -194,3 +198,4 @@ pnpm check:edgeone   # EdgeOne 部署前自检（CI 亦会执行）
 - 首页把所有文章卡片预渲染进 HTML（利于 SEO），搜索/分页在客户端完成；文章特别多时可改为静态分页路由。
 - 站点不再有运行时 SSR，`SITE_URL` 在构建期固化；跨域名复用同一份构建产物不适用。
 - `/api/posts` 的带参数查询只在 Cloud Functions 或 `serve.mjs` 下可用；纯静态托管请使用 `api/*.json` 静态数据。
+- Astro 官方不支持把 bun 作为 CLI 运行时，`bun run --bun` 是绕过 shebang 的官方 workaround；TypeScript 因此必须停留在 6.x，`@astrojs/check` 尚未适配 7.x。
