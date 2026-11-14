@@ -88,9 +88,9 @@ pnpm build:content   # 只重编译内容
 
 ## 部署
 
-这是 **Node.js 服务**，不是静态站点，也不是 Cloudflare Workers：服务端依赖 `node:fs`、`@hono/node-server` 以及 `resvg-js` 原生模块，因此不能跑在 Workers 或纯静态 Pages 上。
+主运行形态是 **Node.js 服务**：服务端依赖 `node:fs`、`@hono/node-server` 与 `resvg-js` 原生模块，不能直接跑在 Cloudflare Workers 之类的边缘运行时上。目标是 EdgeOne Pages 这类「静态 + 函数」平台时，请走下面的构建期预渲染路径，不要直接上传 `dist/server`。
 
-Docker（推荐）：
+### Docker / 发布包
 
 ```bash
 docker build -t neon-fragments .
@@ -104,32 +104,58 @@ pnpm install --prod --frozen-lockfile
 node dist/server/index.js
 ```
 
+### 腾讯云 EdgeOne Pages（静态资源 + Cloud Functions）
+
+`pnpm build:edgeone` 复用 Vite 编译好的 SSR bundle（`EDGEONE_PRERENDER=1` 时只渲染、不监听端口），把首页、静态页、文章页、rss/atom/sitemap/robots 和分享卡片 PNG 全部落成静态文件到 `dist/edgeone/`；`cloud-functions/[[default]].js` 只兜底 `/api/*`、错误日期 301 与 404，不依赖 hono、`node:fs` 或原生模块。文章数据构建期固定，因此预渲染与运行时 SSR 等价，但更适合边缘分发。
+
+控制台（国内站 `https://console.cloud.tencent.com/edgeone/pages`）：
+
+1. 开通 Pages → 绑定 GitHub → 授权 EO Pages → 选择本仓库，部署分支 `main`。
+2. 在「项目设置 → 构建部署配置」填写：
+
+   | 配置项 | 值 |
+   | :--- | :--- |
+   | 根目录 | `./` |
+   | 安装命令 | `npm i -g pnpm@12.18.0 && pnpm install --frozen-lockfile` |
+   | 构建命令 | `pnpm build:edgeone` |
+   | 输出目录 | `dist/edgeone` |
+   | Node.js 版本 | `26`（`.nvmrc` 会自动下载；该版本不预装包管理器，故安装命令里显式安装 pnpm） |
+   | 环境变量 | `SITE_URL=https://your.domain` |
+
+3. 保存并开始部署；之后 push `main` 会自动重部署。`cloud-functions/` 位于仓库根，由 Pages 按 Cloud Functions 约定识别。
+4. 选「全球（含中国大陆）」加速区并绑定自定义域名需要 ICP 备案；仅面向海外可选「全球（不含中国大陆）」。
+
+改动 `_posts/` 后请本地执行一次 `pnpm build:edgeone` 并提交更新后的 `cloud-functions/data.js`，确保 API 兜底数据与文章一致（Pages 构建时也会重新生成该文件）。
+
 环境变量：
 
 | 变量 | 用途 | 默认 |
 | :--- | :--- | :--- |
 | `SITE_URL` | canonical / sitemap / RSS / OG 图的公开地址 | `https://saibo.me` |
-| `PORT` | 生产端口 | `3000` |
+| `PORT` | 生产端口（仅 Node 服务） | `3000` |
 | `CONTENT_DIR` | 内容源目录（仅构建期） | `_posts` |
+| `OG_FONT_DIR` | OG 图字体目录，留空自动探测 | 自动 |
 
 `.env.local` 已被 git 忽略，`.env.example` 是可提交的模板。
 
 ## 质量卡口
 
 ```bash
-pnpm typecheck   # tsc --noEmit
-pnpm lint        # oxlint
-pnpm test        # node:test：永久链接、内容校验/消毒、列表查询
-pnpm build       # 完整构建
+pnpm typecheck      # tsc --noEmit
+pnpm lint           # oxlint
+pnpm test           # node:test：永久链接、内容校验/消毒、列表查询、EdgeOne 函数
+pnpm build          # Node 服务完整构建
+pnpm build:edgeone  # EdgeOne Pages 预渲染产物
 ```
 
 ## 目录
 
 - `_posts/` — Markdown 原文（入库）
-- `scripts/` — 内容编译、消毒校验、模板搬移
+- `scripts/` — 内容编译、消毒校验、模板搬移、EdgeOne 预渲染
 - `server/` — Hono 应用、SSR 入口路由、数据加载、动态 OG 图
+- `cloud-functions/` — EdgeOne Pages 兜底函数与构建期生成的数据模块
 - `components/` `contexts/` — React UI 与共享上下文
 - `lib/` — 前后端共用的纯函数（permalink、列表查询）
 - `config.ts` `types.ts` — 站点默认配置与共享类型
 - `tests/` — 单元测试
-- `dist/` — 构建产物：`client/`（静态资源）、`server/`（SSR 服务）、`template/`（HTML 模板）
+- `dist/` — 构建产物：`client/`（静态资源）、`server/`（SSR 服务）、`template/`（HTML 模板）、`edgeone/`（预渲染站点）

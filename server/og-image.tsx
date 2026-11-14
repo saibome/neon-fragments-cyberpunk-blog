@@ -8,15 +8,38 @@ import { SITE_URL } from './site';
 import type { BlogPost } from '../types';
 
 const fontCache = new Map<string, Promise<ArrayBuffer>>();
+let fontDirectoryPromise: Promise<string> | undefined;
+
+/**
+ * 字体目录按实际文件探测，兼容源码运行（构建期预渲染）、生产 SSR bundle
+ * 与容器部署，不再依赖 Vite 的 import.meta.env 常量。也可用 OG_FONT_DIR 覆盖。
+ */
+function resolveFontDirectory(): Promise<string> {
+  if (process.env.OG_FONT_DIR) return Promise.resolve(path.resolve(process.env.OG_FONT_DIR));
+  fontDirectoryPromise ??= (async () => {
+    for (const dir of ['dist/client/fonts', 'public/fonts']) {
+      const candidate = path.resolve(dir);
+      try {
+        await fs.access(path.join(candidate, 'rajdhani-700.ttf'));
+        return candidate;
+      } catch {
+        // 该目录下没有字体，继续尝试下一个候选
+      }
+    }
+    throw new Error('找不到 OG 图字体目录，请设置 OG_FONT_DIR');
+  })();
+  return fontDirectoryPromise;
+}
 
 function loadLocalFont(filename: string): Promise<ArrayBuffer> {
   const cached = fontCache.get(filename);
   if (cached) return cached;
 
-  const fontDirectory = path.resolve(import.meta.env.PROD ? 'dist/client/fonts' : 'public/fonts');
-  const promise = fs.readFile(path.join(fontDirectory, filename)).then(buffer =>
-    buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer
-  );
+  const promise = resolveFontDirectory()
+    .then(directory => fs.readFile(path.join(directory, filename)))
+    .then(buffer =>
+      buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength) as ArrayBuffer
+    );
   fontCache.set(filename, promise);
   promise.catch(() => fontCache.delete(filename));
   return promise;

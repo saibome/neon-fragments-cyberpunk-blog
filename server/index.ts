@@ -14,7 +14,10 @@ import type { InitialData } from '../types';
 const server = new Hono();
 const KNOWN_PAGES = new Set(['/', '/net', '/data', '/gear']);
 
-if (import.meta.env.PROD) {
+// 构建期预渲染模式只复用 SSR 渲染结果，不注册静态服务、不启动监听端口
+const isPrerender = process.env.EDGEONE_PRERENDER === '1';
+
+if (import.meta.env.PROD && !isPrerender) {
   server.use('/*', serveStatic({ root: './dist/client' }));
 }
 
@@ -103,7 +106,7 @@ server.get('*', async (c) => {
   return c.html(html, status);
 });
 
-if (import.meta.env.PROD) {
+if (import.meta.env.PROD && !isPrerender) {
   const port = Number(process.env.PORT) || 3000;
   console.log(`Server is running on port ${port} (${SITE_URL})`);
   serve({

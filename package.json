@@ -10,7 +10,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/ShinChven/neon-fragments-cyberpunk-blog.git"
+    "url": "https://github.com/saibome/neon-fragments-cyberpunk-blog.git"
   },
   "scripts": {
     "dev": "vite",
@@ -18,11 +18,12 @@
     "build:client": "vite build --outDir dist/client && node scripts/move-template.mjs",
     "build:server": "vite build --ssr server/index.ts --outDir dist/server",
     "build": "pnpm build:content && pnpm build:client && pnpm build:server",
+    "build:edgeone": "pnpm build:content && pnpm build:client && pnpm build:server && tsx scripts/prerender.ts",
     "start": "node dist/server/index.js",
     "preview": "node dist/server/index.js",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint .",
-    "test": "node --import tsx --test tests/permalink.test.ts tests/content.test.ts tests/posts.test.ts"
+    "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.8",
