@@ -4,6 +4,7 @@ import CyberButton from '../../../../components/CyberButton.astro';
 import CyberDate from '../../../../components/CyberDate.astro';
 import GlitchText from '../../../../components/GlitchText.astro';
 import Icon from '../../../../components/Icon.astro';
+import PostDataPanel from '../../../../components/PostDataPanel.astro';
 import ShareModal from '../../../../components/ShareModal.astro';
 import { DEFAULT_COVER } from '../../../../consts';
 import { cardUrl } from '../../../../lib/permalink';
@@ -36,6 +37,7 @@ const currentUrl = `${SITE_URL}${post.permalink}`;
 const displayImage = post.image || DEFAULT_COVER;
 const ogImage = `${SITE_URL}${cardUrl(post.permalink)}`;
 const description = post.description || `${plainText(post.content).substring(0, 150)}……`;
+const rawUrl = `${post.permalink}.md`;
 ---
 
 <BaseLayout
@@ -48,6 +50,13 @@ const description = post.description || `${plainText(post.content).substring(0, 
   articleTags={post.tags}
   publishedTime={new Date(post.date).toISOString()}
 >
+  {/* 桌面端：挂在站点左侧栏里，正好位于文章正文左侧 */}
+  <Fragment slot="rail">
+    <div class="mt-6">
+      <PostDataPanel date={post.date} readTime={post.readTime} tagCount={post.tags.length} rawUrl={rawUrl} />
+    </div>
+  </Fragment>
+
   <div class="bg-cyber-dark min-h-full relative border-t-4 border-cyber-yellow">
     <div class="w-full bg-zinc-900 relative overflow-hidden flex flex-col justify-end pt-4 md:pt-8">
       <div class="absolute inset-0 bg-cover bg-center opacity-20 mix-blend-overlay" style={`background-image: url('${displayImage}')`}></div>
@@ -66,6 +75,11 @@ const description = post.description || `${plainText(post.content).substring(0, 
           ))}
         </div>
       </div>
+    </div>
+
+    {/* 移动端没有左侧栏，把同一份数据内联到正文上方 */}
+    <div class="max-w-4xl mx-auto px-4 md:px-8 pt-6 lg:hidden">
+      <PostDataPanel date={post.date} readTime={post.readTime} tagCount={post.tags.length} rawUrl={rawUrl} />
     </div>
 
     <div class="max-w-4xl mx-auto px-4 md:px-8 pt-2 pb-4 md:pb-8">

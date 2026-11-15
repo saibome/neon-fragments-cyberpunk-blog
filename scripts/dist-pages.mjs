@@ -30,6 +30,9 @@ export async function findPostDirs(dist) {
         const dayPath = path.join(monthPath, day.name);
         for (const slug of await fs.readdir(dayPath, { withFileTypes: true })) {
           if (!slug.isDirectory()) continue;
+          // 静态端点若以目录形式输出（如 xxx.md/index.html）不应被当成文章页；
+          // 合法的 post slug 只含字母数字 - _，不含点号。
+          if (slug.name.includes('.')) continue;
           const relative = `${year.name}/${month.name}/${day.name}/${slug.name}`;
           try {
             await fs.access(path.join(dist, relative, 'index.html'));

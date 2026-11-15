@@ -181,7 +181,7 @@ if (postDirs.length !== contentFiles.length) {
   fail(`内容集合文章数（${contentFiles.length}）与 dist 文章页（${postDirs.length}）不一致`);
 }
 for (const base of postDirs) {
-  for (const file of [`${base}/index.html`, `${base}.html`, `card/${base}.png`]) {
+  for (const file of [`${base}/index.html`, `${base}.html`, `${base}.md`, `card/${base}.png`]) {
     if (!exists(file)) fail(`文章 ${base} 缺少产物：${file}`);
   }
 }

@@ -1,0 +1,151 @@
+---
+/**
+ * 文章页左侧「传输数据」面板。
+ * 所有数值都来自内容集合条目：UTC 发布日期、估算阅读时间、标签数量、
+ * 以及指向该文章原始 Markdown 的 .MD 链接。
+ */
+interface Props {
+  date: string;
+  readTime: string;
+  tagCount: number;
+  rawUrl: string;
+  class?: string;
+}
+
+const { date, readTime, tagCount, rawUrl, class: className = '' } = Astro.props;
+const dateObj = new Date(date);
+const valid = !Number.isNaN(dateObj.getTime());
+const published = valid
+  ? `${dateObj.getUTCFullYear()}年${dateObj.getUTCMonth() + 1}月${dateObj.getUTCDate()}日`
+  : date;
+---
+
+<section class:list={['transmission-panel', className]} aria-label="文章传输数据">
+  <div class="transmission-panel__body">
+    <h2 class="transmission-panel__title"><span class="transmission-panel__slashes" aria-hidden="true">///</span> 传输数据</h2>
+
+    <dl class="transmission-panel__rows">
+      <div class="transmission-panel__row">
+        <dt>已发布</dt>
+        <dd>
+          {valid
+            ? <time datetime={dateObj.toISOString()}>{published}</time>
+            : <span>{published}</span>}
+        </dd>
+      </div>
+      <div class="transmission-panel__row">
+        <dt>阅读时间</dt>
+        <dd>{readTime}</dd>
+      </div>
+      <div class="transmission-panel__row">
+        <dt>标签</dt>
+        <dd class="transmission-panel__accent">{tagCount}</dd>
+      </div>
+      <div class="transmission-panel__row">
+        <dt>原始数据</dt>
+        <dd class="transmission-panel__accent">
+          <a href={rawUrl} target="_blank" rel="noopener noreferrer" aria-label="查看文章原始 Markdown 数据">.MD</a>
+        </dd>
+      </div>
+    </dl>
+  </div>
+</section>
+
+<style>
+  /* 两层同形 clip-path：外层充当 1px 描边，内层是面板底色，右下角一起被切掉 */
+  .transmission-panel {
+    position: relative;
+    padding: 1px;
+    background: rgba(170, 170, 170, 0.32);
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%);
+  }
+
+  .transmission-panel__body {
+    position: relative;
+    padding: 1.6rem 1.5rem 1.85rem;
+    background-color: #0b0c0d;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
+    background-size: 20px 20px;
+    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 21px), calc(100% - 21px) 100%, 0 100%);
+  }
+
+  .transmission-panel__body::after {
+    content: "";
+    position: absolute;
+    left: 1.5rem;
+    right: 2rem;
+    bottom: 0.6rem;
+    height: 1px;
+    background: rgba(170, 170, 170, 0.16);
+  }
+
+  .transmission-panel__title {
+    margin: 0 0 1.4rem;
+    color: var(--color-cyber-yellow);
+    font-family: var(--font-display), sans-serif;
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  .transmission-panel__slashes {
+    letter-spacing: -0.08em;
+    margin-right: 0.15rem;
+  }
+
+  .transmission-panel__rows {
+    margin: 0;
+  }
+
+  .transmission-panel__row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.55rem 0;
+  }
+
+  .transmission-panel__row dt {
+    flex-shrink: 0;
+    color: #c4c4c4;
+    font-size: 0.95rem;
+    font-weight: 400;
+  }
+
+  .transmission-panel__row dd {
+    margin: 0;
+    min-width: 0;
+    color: #fff;
+    font-family: var(--font-display), sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .transmission-panel__accent,
+  .transmission-panel__accent a {
+    color: var(--color-cyber-cyan);
+  }
+
+  .transmission-panel__accent a {
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+    transition: color 0.2s ease, border-color 0.2s ease;
+  }
+
+  .transmission-panel__accent a:hover,
+  .transmission-panel__accent a:focus-visible {
+    color: var(--color-cyber-yellow);
+    border-bottom-color: currentColor;
+  }
+
+  @media (max-width: 400px) {
+    .transmission-panel__body { padding: 1.35rem 1.15rem 1.6rem; }
+    .transmission-panel__row dt { font-size: 0.9rem; }
+    .transmission-panel__row dd { font-size: 0.95rem; }
+  }
+</style>

@@ -71,6 +71,8 @@ const profile = DEFAULT_AUTHOR;
       <Navbar activePath={activePath}>
         <Fragment slot="sidebar">
           <ProfileSidebar user={profile} activePath={activePath} />
+          {/* 文章页可在此追加左侧栏模块（如「传输数据」），其他页面留空 */}
+          <slot name="rail" />
         </Fragment>
       </Navbar>
 
