@@ -19,8 +19,8 @@ const published = valid
   : date;
 ---
 
-<section class:list={['transmission-panel', className]} aria-label="文章传输数据">
-  <div class="transmission-panel__body">
+<section class:list={['cyber-panel', className]} aria-label="文章传输数据">
+  <div class="cyber-panel__body transmission-panel__body">
     <h2 class="transmission-panel__title"><span class="transmission-panel__slashes" aria-hidden="true">///</span> 传输数据</h2>
 
     <dl class="transmission-panel__rows">
@@ -49,23 +49,10 @@ const published = valid
 </section>
 
 <style>
-  /* 两层同形 clip-path：外层充当 1px 描边，内层是面板底色，右下角一起被切掉 */
-  .transmission-panel {
-    position: relative;
-    padding: 1px;
-    background: rgba(170, 170, 170, 0.32);
-    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 22px), calc(100% - 22px) 100%, 0 100%);
-  }
-
+  /* 外框（1px 描边 + 右下切角 + 网格底）由 global.css 的 .cyber-panel 提供，
+     与左侧作者卡共用；这里只定义本模块自己的内边距与装饰线。 */
   .transmission-panel__body {
-    position: relative;
     padding: 1.6rem 1.5rem 1.85rem;
-    background-color: #0b0c0d;
-    background-image:
-      linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.018) 1px, transparent 1px);
-    background-size: 20px 20px;
-    clip-path: polygon(0 0, 100% 0, 100% calc(100% - 21px), calc(100% - 21px) 100%, 0 100%);
   }
 
   .transmission-panel__body::after {

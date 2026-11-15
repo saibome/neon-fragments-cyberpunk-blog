@@ -17,7 +17,30 @@ test('传输数据面板展示截图中的四项数据，.MD 只是纯文本标�
   assert.doesNotMatch(source, /<a\b/, '.MD 不应是超链接');
   assert.doesNotMatch(source, /href=/, '面板内不应出现链接');
   assert.match(source, /transmission-panel__accent/);
-  assert.match(source, /clip-path: polygon/);
+  assert.match(source, /cyber-panel__body/, '外框使用共享类');
+});
+
+test('作者卡与传输数据面板共用同一套描边与右下切角', () => {
+  const css = read('src/styles/global.css');
+  const frame = css.match(/\.cyber-panel \{[^}]*\}/s)?.[0] ?? '';
+  assert.match(frame, /padding: 1px/, '外层 1px 露出底色充当描边');
+  assert.match(frame, /clip-path: polygon\(0 0, 100% 0, 100% calc\(100% - 22px\), calc\(100% - 22px\) 100%, 0 100%\)/);
+  const body = css.match(/\.cyber-panel__body \{[^}]*\}/s)?.[0] ?? '';
+  assert.match(body, /background-color: #0b0c0d/);
+  assert.match(body, /clip-path: polygon/);
+  assert.match(body, /background-size: 20px 20px/);
+
+  const sidebar = read('src/components/ProfileSidebar.astro');
+  assert.match(sidebar, /class="cyber-panel"/);
+  assert.match(sidebar, /cyber-panel__body/);
+  assert.doesNotMatch(sidebar, /clip-corner-tr/, '不再使用右上切角');
+  assert.doesNotMatch(sidebar, /border border-cyber-gray\/50/, '不再使用普通边框');
+  assert.doesNotMatch(sidebar, /bg-\[linear-gradient/, '网格由共享类提供，避免叠两层');
+
+  const panel = read('src/components/PostDataPanel.astro');
+  assert.match(panel, /class:list=\{\['cyber-panel'/);
+  assert.match(panel, /cyber-panel__body/);
+  assert.doesNotMatch(panel, /\.transmission-panel \{/, '外框定义只在 global.css 里有一份');
 });
 
 test('文章页只渲染一份左侧面板，移动端不显示', () => {

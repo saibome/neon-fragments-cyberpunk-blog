@@ -18,6 +18,19 @@ test('正文二级标题为黄色带方块，三级标题为青色', () => {
   assert.match(h3, /font-weight: 700/);
 });
 
+test('文章大标题在手机端比正文二级标题大', () => {
+  const post = read('src/pages/[year]/[month]/[day]/[slug].astro');
+  const h1 = post.match(/<h1 class="([^"]+)"/)?.[1] ?? '';
+  assert.match(h1, /\btext-4xl\b/, '手机端 36px');
+  assert.match(h1, /\bmd:text-5xl\b/, '桌面保持 48px');
+  assert.doesNotMatch(h1, /\btext-2xl\b/, '24px 会比 h2 的 28px 还小');
+
+  const css = read('src/styles/global.css');
+  const h2Size = Number(css.match(/\.cyber-markdown h2 \{[^}]*font-size: ([\d.]+)rem/s)?.[1] ?? 0);
+  assert.ok(h2Size > 0, 'h2 必须声明字号');
+  assert.ok(2.25 > h2Size, `手机端 h1 (2.25rem) 应大于 h2 (${h2Size}rem)`);
+});
+
 test('logo 每 7 秒静止后播放 1 秒 glitch（8s 周期）', () => {
   const css = read('src/styles/global.css');
   assert.match(css, /@keyframes site-logo-glitch/);
