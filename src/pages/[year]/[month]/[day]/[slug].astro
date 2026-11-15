@@ -37,7 +37,6 @@ const currentUrl = `${SITE_URL}${post.permalink}`;
 const displayImage = post.image || DEFAULT_COVER;
 const ogImage = `${SITE_URL}${cardUrl(post.permalink)}`;
 const description = post.description || `${plainText(post.content).substring(0, 150)}……`;
-const rawUrl = `${post.permalink}.md`;
 ---
 
 <BaseLayout
@@ -53,7 +52,7 @@ const rawUrl = `${post.permalink}.md`;
   {/* 桌面端：挂在站点左侧栏里，正好位于文章正文左侧 */}
   <Fragment slot="rail">
     <div class="mt-6">
-      <PostDataPanel date={post.date} readTime={post.readTime} tagCount={post.tags.length} rawUrl={rawUrl} />
+      <PostDataPanel date={post.date} readTime={post.readTime} tagCount={post.tags.length} />
     </div>
   </Fragment>
 
@@ -79,7 +78,7 @@ const rawUrl = `${post.permalink}.md`;
 
     {/* 移动端没有左侧栏，把同一份数据内联到正文上方 */}
     <div class="max-w-4xl mx-auto px-4 md:px-8 pt-6 lg:hidden">
-      <PostDataPanel date={post.date} readTime={post.readTime} tagCount={post.tags.length} rawUrl={rawUrl} />
+      <PostDataPanel date={post.date} readTime={post.readTime} tagCount={post.tags.length} />
     </div>
 
     <div class="max-w-4xl mx-auto px-4 md:px-8 pt-2 pb-4 md:pb-8">

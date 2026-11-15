@@ -109,7 +109,6 @@ bun run build     # 生成页面、订阅源、sitemap 与分享图
           ├── 页面 getStaticPaths() ─► 首页、/net、/gear、文章页、404
           ├── 静态端点 ────────────► rss.xml / sitemap.xml / robots.txt
           │                          card/YYYY/MM/DD/slug.png（satori + resvg）
-          │                          YYYY/MM/DD/slug.md（文章原始 Markdown）
           └── scripts/postbuild.mjs ► 平铺 .html 副本（clean URL 兜底）
 运行期  EdgeOne Pages 静态托管（纯文件，无函数、无常驻服务）
           └─ 浏览器：原生 JS 负责搜索、标签、分页、分享弹窗、代码块工具栏
@@ -121,7 +120,7 @@ bun run build     # 生成页面、订阅源、sitemap 与分享图
 - **正文渲染仍走自建管线**：集合负责内容组织、frontmatter 校验、类型与缓存；`entry.body` 交给 `src/lib/markdown.ts` 渲染，以保留 sanitize-html 的标签/属性白名单消毒和现有 highlight.js 视觉。若改用 Astro 的 `render(entry)`，需要另接 `rehype-sanitize` 并重做代码高亮样式。
 - **永久链接**：`permalink` 在构建期按 UTC 生成一次，页面、sitemap、RSS、OG 图与 canonical 全部只读 `post.permalink`。日期段写错的链接不再有 301 兜底，静态托管会直接返回 404。
 - **站点地址**：`scripts/env.mjs` 统一解析 `SITE_URL`（shell 环境变量优先，其次 `.env.local`），Astro 配置与页面渲染共用；换域名需要重新构建。
-- **文章左侧「传输数据」**：`src/components/PostDataPanel.astro` 展示发布日期、阅读时间、标签数与 `.MD` 原始链接，数值全部来自内容集合；桌面端挂在 `BaseLayout` 的 `rail` 插槽（站点左侧栏），移动端内联在正文上方。`.MD` 指向静态端点 `[slug].md.ts` 发布的 `/YYYY/MM/DD/slug.md`，内容就是 `src/content/posts/` 里的原文件（含 frontmatter）。
+- **文章左侧「传输数据」**：`src/components/PostDataPanel.astro` 展示发布日期、阅读时间、标签数与 `.MD` 格式标识，数值全部来自内容集合；桌面端挂在 `BaseLayout` 的 `rail` 插槽（站点左侧栏），移动端内联在正文上方。`.MD` 只是纯文本状态显示，不是链接，站点也不发布额外的原始 Markdown 产物。
 - **内容安全**：frontmatter 由 zod 校验，类型不对直接让构建失败；Markdown 产出的 HTML 经白名单消毒后才用 `set:html` 注入页面。
 - **零框架交互**：搜索 / 标签 / 分页直接对预渲染的卡片做显隐，**不发起任何网络请求**，无 JS 时全部文章可见；分享弹窗（原生 `<dialog>`）只提供复制链接，代码块工具栏是原生 JS。图标是构建期提取的静态 SVG，不引入图标库。
 - **OG 分享图**：satori 接受 `{ type, props }` 形状的节点对象，因此用 `src/lib/ogImage.ts` 的 `h()` 构造节点树，**不需要 JSX 或 React**；resvg 输出 PNG。
@@ -171,7 +170,7 @@ bun run check:edgeone   # 只自检：内容集合、产物完整性、配置约
 
 > 重新部署后若日志仍出现 `Failed to switch to Node.js x`：确认推送后的仓库根目录已无 `.nvmrc`，把「项目设置 → Node.js 版本」确认为 `24.5.0`，并关闭「使用构建缓存」做一次无缓存部署（旧缓存可能残留上一版的 `.nvmrc`）。配置改动只在下一次部署生效，保存设置本身不会触发构建。
 
-首次部署后建议逐项核验：首页 `/`、文章页 `/YYYY/MM/DD/slug`、静态页 `/net` 与 `/gear`、`/rss.xml`、`/sitemap.xml`、`/card/YYYY/MM/DD/slug.png`（PNG）、`/YYYY/MM/DD/slug.md`（文章原始数据）、未知页（404）。若文章页 404，检查平台是否自动展开 `目录/index.html`（仓库同时提供了 `/YYYY/MM/DD/slug.html` 平铺副本），必要时在 `edgeone.json` 的 `rewrites` 中补对应规则。
+首次部署后建议逐项核验：首页 `/`、文章页 `/YYYY/MM/DD/slug`、静态页 `/net` 与 `/gear`、`/rss.xml`、`/sitemap.xml`、`/card/YYYY/MM/DD/slug.png`（PNG）、未知页（404）。若文章页 404，检查平台是否自动展开 `目录/index.html`（仓库同时提供了 `/YYYY/MM/DD/slug.html` 平铺副本），必要时在 `edgeone.json` 的 `rewrites` 中补对应规则。
 
 环境变量：
 

@@ -1,18 +1,17 @@
 ---
 /**
  * 文章页左侧「传输数据」面板。
- * 所有数值都来自内容集合条目：UTC 发布日期、估算阅读时间、标签数量、
- * 以及指向该文章原始 Markdown 的 .MD 链接。
+ * 数值来自内容集合条目：UTC 发布日期、估算阅读时间与标签数量；
+ * 「原始数据 .MD」只是格式标识，不是链接。
  */
 interface Props {
   date: string;
   readTime: string;
   tagCount: number;
-  rawUrl: string;
   class?: string;
 }
 
-const { date, readTime, tagCount, rawUrl, class: className = '' } = Astro.props;
+const { date, readTime, tagCount, class: className = '' } = Astro.props;
 const dateObj = new Date(date);
 const valid = !Number.isNaN(dateObj.getTime());
 const published = valid
@@ -43,9 +42,7 @@ const published = valid
       </div>
       <div class="transmission-panel__row">
         <dt>原始数据</dt>
-        <dd class="transmission-panel__accent">
-          <a href={rawUrl} target="_blank" rel="noopener noreferrer" aria-label="查看文章原始 Markdown 数据">.MD</a>
-        </dd>
+        <dd class="transmission-panel__accent">.MD</dd>
       </div>
     </dl>
   </div>
@@ -126,21 +123,8 @@ const published = valid
     white-space: nowrap;
   }
 
-  .transmission-panel__accent,
-  .transmission-panel__accent a {
+  .transmission-panel__accent {
     color: var(--color-cyber-cyan);
-  }
-
-  .transmission-panel__accent a {
-    text-decoration: none;
-    border-bottom: 1px solid transparent;
-    transition: color 0.2s ease, border-color 0.2s ease;
-  }
-
-  .transmission-panel__accent a:hover,
-  .transmission-panel__accent a:focus-visible {
-    color: var(--color-cyber-yellow);
-    border-bottom-color: currentColor;
   }
 
   @media (max-width: 400px) {
