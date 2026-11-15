@@ -124,6 +124,7 @@ bun run build     # 生成页面、订阅源、sitemap 与分享图
 - **内容安全**：frontmatter 由 zod 校验，类型不对直接让构建失败；Markdown 产出的 HTML 经白名单消毒后才用 `set:html` 注入页面。
 - **零框架交互**：搜索 / 标签 / 分页直接对预渲染的卡片做显隐，**不发起任何网络请求**，无 JS 时全部文章可见；分享弹窗（原生 `<dialog>`）只提供复制链接，代码块工具栏是原生 JS。图标是构建期提取的静态 SVG，不引入图标库。
 - **OG 分享图**：satori 接受 `{ type, props }` 形状的节点对象，因此用 `src/lib/ogImage.ts` 的 `h()` 构造节点树，**不需要 JSX 或 React**；resvg 输出 PNG。
+- **移动端顶栏与正文标题**：`md` 以下只显示 `SAIBO.ME`（Rajdhani 斜体粗体不变）与黄色开口线框（搜索 / 竖线 / 菜单），导航链接和在线状态留在桌面端；搜索按钮聚焦首页 `[data-post-search]`，在文章页则跳 `/#search`。logo 用 8s CSS 周期实现「静止 7s + glitch 1s」，`prefers-reduced-motion` 下自动禁用。正文 `h2` 为黄色粗体带小方块、`h3` 为青色粗体，样式集中在 `global.css`。
 - **字体分目录**：浏览器字体与构建期字体分开存放，避免 20MB 中文字体被当成静态资源发布。
 
 | 目录 | 内容 | 是否进入 `dist/` |

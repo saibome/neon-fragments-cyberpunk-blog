@@ -10,33 +10,14 @@ interface Props {
 const { activePath = '/' } = Astro.props;
 ---
 
-<nav class="fixed top-0 z-50 w-full bg-cyber-black/90 backdrop-blur-sm border-b border-cyber-gray/50">
+<nav class="fixed top-0 z-50 w-full bg-cyber-black/90 backdrop-blur-sm border-b-0 border-cyber-gray/50 md:border-b">
   <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
     <div class="flex items-center justify-between h-16">
-      <div class="flex items-center">
-        <button
-          type="button"
-          data-profile-toggle
-          aria-label="切换个人资料"
-          aria-expanded="false"
-          class="md:hidden mr-4 text-cyber-yellow hover:text-cyber-cyan transition-colors z-50 relative"
-        >
-          <svg data-cyber-menu viewBox="0 0 24 24" fill="none" class="w-8 h-8" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path class="menu-top" d="M2 6H22" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
-            <path class="menu-middle" d="M2 12H16" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
-            <path class="menu-middle" d="M19 12H22" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
-            <path class="menu-bottom" d="M2 18H22" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
-            <rect class="menu-decor" x="20" y="4" width="2" height="4" fill="currentColor" />
-            <rect class="menu-decor" x="2" y="16" width="2" height="4" fill="currentColor" />
-          </svg>
-        </button>
-
-        <a href="/" class="flex-shrink-0 cursor-pointer">
-          <h1 class="text-3xl font-display font-bold italic tracking-tighter text-cyber-yellow">
-            <span class="text-cyber-cyan mr-1">NC</span>SAIBO<span class="text-white">.</span>ME
-          </h1>
-        </a>
-      </div>
+      <a href="/" class="flex-shrink-0 cursor-pointer">
+        <h1 class="site-logo-glitch text-3xl font-display font-bold italic tracking-tighter text-cyber-yellow">
+          SAIBO<span class="text-white">.</span>ME
+        </h1>
+      </a>
 
       <div class="hidden md:block">
         <div class="ml-10 flex items-baseline space-x-8">
@@ -58,12 +39,49 @@ const { activePath = '/' } = Astro.props;
       </div>
 
       <div class="flex items-center">
-        <div class="h-2 w-2 bg-green-500 rounded-full animate-ping mr-2"></div>
-        <span class="text-xs font-mono text-green-500">在线</span>
+        <div class="hidden md:flex items-center">
+          <div class="h-2 w-2 bg-green-500 rounded-full animate-ping mr-2"></div>
+          <span class="text-xs font-mono text-green-500">在线</span>
+        </div>
+
+        {/* 手机端控制区：黄色开口线框，内含搜索、竖分隔线与菜单 */}
+        <div class="md:hidden relative flex items-center h-11 w-28 text-cyber-yellow">
+          <svg class="pointer-events-none absolute inset-0 h-full w-full" viewBox="0 0 112 44" preserveAspectRatio="none" fill="none" aria-hidden="true">
+            <path d="M26 1H111V43H1V13" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke" />
+            <path d="M100 43V36" stroke="currentColor" stroke-width="1" vector-effect="non-scaling-stroke" />
+          </svg>
+
+          <button
+            type="button"
+            data-nav-search
+            aria-label="搜索文章"
+            class="relative z-10 flex h-full w-1/2 items-center justify-center hover:text-cyber-cyan transition-colors"
+          >
+            <Icon name="search" class="h-5 w-5" />
+          </button>
+
+          <span class="relative z-10 h-5 w-px shrink-0 bg-cyber-yellow/60" aria-hidden="true"></span>
+
+          <button
+            type="button"
+            data-profile-toggle
+            aria-label="切换个人资料"
+            aria-expanded="false"
+            class="relative z-10 flex h-full flex-1 items-center justify-center hover:text-cyber-cyan transition-colors"
+          >
+            <svg data-cyber-menu viewBox="0 0 24 24" fill="none" class="w-6 h-6" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+              <path class="menu-top" d="M3 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
+              <path class="menu-middle" d="M3 12H21" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
+              <path class="menu-bottom" d="M3 18H21" stroke="currentColor" stroke-width="2" stroke-linecap="square" />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
   </div>
-  <div class="h-[1px] w-full bg-gradient-to-r from-transparent via-cyber-cyan to-transparent opacity-50"></div>
+
+  <div class="h-px w-full bg-cyber-yellow/50 md:hidden"></div>
+  <div class="hidden md:block h-px w-full bg-gradient-to-r from-transparent via-cyber-cyan to-transparent opacity-50"></div>
 
   <div class="hidden lg:block absolute top-16 left-0 w-full h-0 pointer-events-none">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full relative">

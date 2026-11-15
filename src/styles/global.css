@@ -94,6 +94,23 @@ body {
   text-shadow: 2px 0 #ff003c, -2px 0 #fcee0a;
 }
 
+/* 站点 logo：8s 周期里前 7s 静止（0%~87.49%），最后 1s 播放 glitch。
+   prefers-reduced-motion 的全局规则会把它降成单次 0.01ms，自动照顾无障碍。 */
+@keyframes site-logo-glitch {
+  0%, 87.49% { transform: none; text-shadow: none; }
+  87.5% { transform: translateX(-2px) skewX(-5deg); text-shadow: 2px 0 var(--color-cyber-red), -2px 0 var(--color-cyber-cyan); }
+  89.5% { transform: translateX(3px) skewX(4deg); text-shadow: -3px 0 var(--color-cyber-red), 3px 0 var(--color-cyber-cyan); }
+  91.5% { transform: translateX(-1px); text-shadow: 3px 0 var(--color-cyber-red), -3px 0 var(--color-cyber-cyan); }
+  94% { transform: translateX(2px) skewX(-3deg); text-shadow: -2px 0 var(--color-cyber-red), 2px 0 var(--color-cyber-cyan); }
+  96.5% { transform: translateX(-2px); text-shadow: 2px 0 var(--color-cyber-red), -2px 0 var(--color-cyber-cyan); }
+  100% { transform: none; text-shadow: none; }
+}
+
+.site-logo-glitch {
+  animation: site-logo-glitch 8s infinite;
+  transform-origin: center;
+}
+
 .clip-corner {
   clip-path: polygon(0 0, 100% 0, 100% 85%, 95% 100%, 0 100%);
 }
@@ -129,16 +146,32 @@ body {
   padding-bottom: 0.5rem;
 }
 
+/* 正文二级标题：黄色粗体 + 左前实心小方块；三级标题：青色粗体、无装饰。
+   中文走系统黑体粗体（Rajdhani 只覆盖拉丁字符），与参考稿的观感一致。 */
 .cyber-markdown h2 {
-  font-size: 2rem;
-  color: var(--color-cyber-cyan);
-  border-left: 4px solid var(--color-cyber-yellow);
-  padding-left: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--color-cyber-yellow);
+  border: 0;
+  padding-left: 0;
+}
+
+.cyber-markdown h2::before {
+  content: "";
+  display: block;
+  flex: none;
+  width: 0.4em;
+  height: 0.4em;
+  background: currentColor;
 }
 
 .cyber-markdown h3 {
   font-size: 1.5rem;
-  color: white;
+  font-weight: 700;
+  color: var(--color-cyber-cyan);
 }
 
 .cyber-markdown p {
