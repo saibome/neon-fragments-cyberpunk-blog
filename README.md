@@ -136,9 +136,11 @@ bun run build     # 生成页面、订阅源、sitemap 与分享图
 
 ## 部署
 
-产物是纯静态站点 `dist/`，**唯一部署目标是腾讯云 EdgeOne Pages**：没有 Docker 镜像、没有自托管静态服务、没有 Cloud Functions，也不需要 `release.zip`。
+产物是纯静态站点 `dist/`，**唯一部署通道是腾讯云 EdgeOne Pages 的 GitHub 绑定项目自动构建**（`git push github main` 即触发部署）：没有 Docker 镜像、没有自托管静态服务、没有 Cloud Functions，也不需要 `release.zip`。
 
 仓库已提交 `edgeone.json`，构建参数不需要在控制台手填。`bun run build` 会额外生成平铺 `.html` 副本（兼容平台不自动展开目录索引的情况）。
+
+> **只保留一个部署项目，不要直传 `dist/`。** 正式站的判定标准是：项目来源为 `Github`、绑定 `saibo.me` / `www.saibo.me`、读取仓库根 `edgeone.json`（缓存头、clean URL、`www → 主域名` 301 都由它生效）。用连接器或 CLI 把 `dist/` 直接上传成 Upload 项目时，同名项目因来源为 GitHub 不支持直传，只能另起新项目；结果会多出一份不随 push 更新、不含任何项目配置、只有带 `eo_token` 且会过期的 `*.edgeone.cool` 预览域名的静态副本。调试期遗留的 `neon-fragments-static` 直传项目已删除，之后不再重新创建。
 
 控制台（国内站 `https://console.cloud.tencent.com/edgeone/pages`）：
 
