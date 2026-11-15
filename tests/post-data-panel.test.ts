@@ -20,16 +20,17 @@ test('传输数据面板展示截图中的四项数据，.MD 只是纯文本标�
   assert.match(source, /clip-path: polygon/);
 });
 
-test('文章页把内容集合的日期、阅读时间、标签数传给左侧面板', () => {
+test('文章页只渲染一份左侧面板，移动端不显示', () => {
   const source = read('src/pages/[year]/[month]/[day]/[slug].astro');
   assert.match(source, /getPosts\(\)/);
   assert.match(source, /tagCount=\{post\.tags\.length\}/);
   assert.match(source, /readTime=\{post\.readTime\}/);
   assert.doesNotMatch(source, /rawUrl/, '不再需要原始数据链接');
   assert.match(source, /slot="rail"/);
-  assert.match(source, /lg:hidden/);
+  assert.doesNotMatch(source, /class="[^"]*lg:hidden/, '不应再有移动端内联副本');
   const panels = source.match(/<PostDataPanel /g) ?? [];
-  assert.equal(panels.length, 2, '桌面左侧栏与移动端内联各一份');
+  assert.equal(panels.length, 1, '只保留桌面左侧栏这一份');
+  assert.match(read('src/components/Navbar.astro'), /hidden lg:block/, '左侧栏必须在 lg 以下隐藏');
 });
 
 test('布局提供左侧栏插槽，未发布多余的原始数据端点', () => {

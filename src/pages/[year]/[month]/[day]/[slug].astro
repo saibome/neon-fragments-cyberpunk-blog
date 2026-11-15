@@ -49,7 +49,8 @@ const description = post.description || `${plainText(post.content).substring(0, 
   articleTags={post.tags}
   publishedTime={new Date(post.date).toISOString()}
 >
-  {/* 桌面端：挂在站点左侧栏里，正好位于文章正文左侧 */}
+  {/* 桌面端：挂在站点左侧栏里，正好位于文章正文左侧。
+      该左侧栏本身是 hidden lg:block，因此移动端不会渲染这份模块。 */}
   <Fragment slot="rail">
     <div class="mt-6">
       <PostDataPanel date={post.date} readTime={post.readTime} tagCount={post.tags.length} />
@@ -74,11 +75,6 @@ const description = post.description || `${plainText(post.content).substring(0, 
           ))}
         </div>
       </div>
-    </div>
-
-    {/* 移动端没有左侧栏，把同一份数据内联到正文上方 */}
-    <div class="max-w-4xl mx-auto px-4 md:px-8 pt-6 lg:hidden">
-      <PostDataPanel date={post.date} readTime={post.readTime} tagCount={post.tags.length} />
     </div>
 
     <div class="max-w-4xl mx-auto px-4 md:px-8 pt-2 pb-4 md:pb-8">
