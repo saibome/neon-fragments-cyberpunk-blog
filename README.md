@@ -31,7 +31,7 @@ bun run build                # astro build → postbuild（无需单独编译内
 
 ```
 ├── astro.config.mjs          # Astro 配置（静态输出、Tailwind 插件、站点地址）
-├── edgeone.json              # EdgeOne Pages 构建 / 缓存头 / clean URL 配置
+├── edgeone.json              # EdgeOne Pages 构建 / 缓存头 / 域名 301 / clean URL 配置
 ├── package.json  bun.lock  tsconfig.json
 ├── public/                   # 不参与构建、原样复制的静态资源
 │   ├── avatar.svg  cover.svg
@@ -145,6 +145,7 @@ bun run build     # 生成页面、订阅源、sitemap 与分享图
 1. 开通 Pages → 绑定 GitHub → 授权 EO Pages → 选择 `saibome/neon-fragments-cyberpunk-blog`，部署分支 `main`。
 2. 在「项目设置 → Node.js 版本」选 `24.5.0`（若之前手动选过 26 务必改掉；`edgeone.json#nodeVersion` 会覆盖同名设置）。再添加环境变量 `SITE_URL=https://your.domain`（构建期固化到 canonical / feed / 分享图）。保存后**需要 push `main` 或点「重新部署」才会生效**；之后 push `main` 自动重部署。
 3. 选「全球（含中国大陆）」加速区并绑定自定义域名需要 ICP 备案；仅面向海外可选「全球（不含中国大陆）」。
+4. **两个域名必须绑定到同一个 Pages 项目**：`saibo.me`（主域名）和 `www.saibo.me`。`SITE_URL` 固定为 `https://saibo.me`，canonical / sitemap / RSS / OG 图都只输出主域名地址。
 
 `edgeone.json` 覆盖的配置（优先级高于控制台里的同名设置）：
 
@@ -156,6 +157,7 @@ bun run build     # 生成页面、订阅源、sitemap 与分享图
 | 输出目录 | `dist` | Astro 静态产物 |
 | Node.js 版本 | `nodeVersion: 24.5.0` | 平台只支持预装版本（14.21.3 / 16.20.2 / 18.20.4 / 20.18.0 / 22.x / 24.5.0 等）。该版本仅为安装 bun 提供 npm；根目录**不提交 `.nvmrc`** |
 | 缓存 / 安全头 | `/_astro/*`、`/fonts/*` 长缓存；全局 nosniff、Referrer-Policy | HTML 不设长缓存，避免更新后读到旧页 |
+| 域名归一化 | `redirects: $wwwhost → $host`, `statusCode: 301` | 把 `www.saibo.me` 永久重定向到 `saibo.me`（保留路径与查询参数）；仅对自定义域名生效，`*.edgeone.cool` 预览链接不受影响。不要同时加 `$host → $wwwhost`，否则两个域名互跳成环 |
 | clean URL 兜底 | `/net`、`/gear` → 同名 `.html` | 兼容平台不自动展开目录索引的情况 |
 
 若云端 `npm i -g` 被网络策略拦截，可在控制台把安装命令临时改为 `bun install --frozen-lockfile`，直接使用平台预装的 bun（需确认其版本能读取文本格式的 `bun.lock`）。
@@ -167,11 +169,13 @@ bun run build:edgeone   # 构建并执行 scripts/check-edgeone.mjs
 bun run check:edgeone   # 只自检：内容集合、产物完整性、配置约束、旧结构没有回退
 ```
 
-`check:edgeone` 会卡住易复发的问题：`nodeVersion` 不是预装版本、`engines` 挡住 24.5.0、误提交 `.nvmrc`、`bun.lock` 缺失或安装/构建命令回退到 pnpm、`src/content.config.ts` 缺失或写错、文章数与 dist 文章页不一致、旧目录（`_posts/`、`services/posts.json`、根目录散落源码）回退、20MB 构建期字体重新进入 `dist/fonts`。CI 也会在每次 push 后执行它。
+`check:edgeone` 会卡住易复发的问题：`nodeVersion` 不是预装版本、`engines` 挡住 24.5.0、误提交 `.nvmrc`、`bun.lock` 缺失或安装/构建命令回退到 pnpm、`www → 主域名` 的 301 规则缺失或被写成互跳、`src/content.config.ts` 缺失或写错、文章数与 dist 文章页不一致、旧目录（`_posts/`、`services/posts.json`、根目录散落源码）回退、20MB 构建期字体重新进入 `dist/fonts`。CI 也会在每次 push 后执行它。
 
 > 重新部署后若日志仍出现 `Failed to switch to Node.js x`：确认推送后的仓库根目录已无 `.nvmrc`，把「项目设置 → Node.js 版本」确认为 `24.5.0`，并关闭「使用构建缓存」做一次无缓存部署（旧缓存可能残留上一版的 `.nvmrc`）。配置改动只在下一次部署生效，保存设置本身不会触发构建。
 
 首次部署后建议逐项核验：首页 `/`、文章页 `/YYYY/MM/DD/slug`、静态页 `/net` 与 `/gear`、`/rss.xml`、`/sitemap.xml`、`/card/YYYY/MM/DD/slug.png`（PNG）、未知页（404）。若文章页 404，检查平台是否自动展开 `目录/index.html`（仓库同时提供了 `/YYYY/MM/DD/slug.html` 平铺副本），必要时在 `edgeone.json` 的 `rewrites` 中补对应规则。
+
+域名归一化用 `curl -I 'https://www.saibo.me/2026/11/14/hello-night-city/?ref=test'` 核验：应返回 `301` 且 `Location` 为 `https://saibo.me/2026/11/14/hello-night-city/?ref=test`；`https://saibo.me/` 必须仍是 `200`。规则改动随下一次部署生效，配置本身不会立刻触发构建。
 
 环境变量：
 

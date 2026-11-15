@@ -69,6 +69,18 @@ if (config) {
   }
   if (config.rewrites?.length > 100) fail('rewrites 超过平台上限 100 条');
   if (config.headers?.length > 30) fail('headers 超过平台上限 30 条');
+  if (config.redirects?.length > 100) fail('redirects 超过平台上限 100 条');
+
+  // www → 裸域名的 301 永久重定向：只保留一个方向，避免两个域名互跳成环。
+  const wwwToApex = (config.redirects ?? []).filter(
+    rule => rule.source === '$wwwhost' && rule.destination === '$host' && rule.statusCode === 301
+  );
+  if (wwwToApex.length !== 1) {
+    fail('edgeone.json 必须保留且只保留一条 $wwwhost → $host 的 301 重定向（www 归一化到主域名）');
+  }
+  if ((config.redirects ?? []).some(rule => rule.source === '$host' && rule.destination === '$wwwhost')) {
+    fail('不能同时配置 $host → $wwwhost，否则与主域名归一化规则形成重定向循环');
+  }
 
   for (const rule of config.rewrites ?? []) {
     const target = String(rule.destination ?? '').replace(/^\/+/, '');
@@ -82,6 +94,7 @@ if (config) {
     }
   }
   notes.push(`云端构建：bun 1.4.4（平台预装 Node ${config.nodeVersion} 仅用于安装 bun）`);
+  notes.push('域名规范化：www → 主域名，301 永久重定向（仅对自定义域名生效）');
 }
 
 // 2. package.json / 锁文件：必须保持 bun 技术栈，且 engines 不挡住云端 Node

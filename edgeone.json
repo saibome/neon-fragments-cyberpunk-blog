@@ -3,6 +3,9 @@
   "buildCommand": "bun run build",
   "outputDirectory": "dist",
   "nodeVersion": "24.5.0",
+  "redirects": [
+    { "source": "$wwwhost", "destination": "$host", "statusCode": 301 }
+  ],
   "headers": [
     {
       "source": "/_astro/*",

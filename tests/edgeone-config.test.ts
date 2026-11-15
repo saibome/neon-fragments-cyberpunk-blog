@@ -22,6 +22,21 @@ test('edgeone.json 声明 bun 构建命令与预装 Node 版本，且不含函�
   assert.ok(config.headers.length <= 30);
 });
 
+test('www 子域名 301 永久重定向到主域名，且不会形成互跳循环', () => {
+  const rules: { source: string; destination: string; statusCode: number }[] = config.redirects ?? [];
+  assert.equal(rules.length, 1, '只保留一条域名归一化规则');
+  assert.deepEqual(rules[0], {
+    source: '$wwwhost',
+    destination: '$host',
+    statusCode: 301
+  });
+  assert.equal(
+    rules.some(rule => rule.source === '$host' && rule.destination === '$wwwhost'),
+    false,
+    '反向规则会与 www → 主域名形成重定向循环'
+  );
+});
+
 test('clean URL 兜底规则只包含现存静态页', () => {
   const sources = config.rewrites.map((rule: { source: string }) => rule.source);
   assert.deepEqual(sources.sort(), ['/gear', '/net']);
@@ -99,10 +114,11 @@ test('OG 图专用的中文字体放在 src/assets，不进入 public/fonts', ()
   assert.match(read('src/lib/ogImage.ts'), /src\/assets\/og-fonts/);
 });
 
-test('部署自检校验内容集合配置与 dist 文章页', () => {
+test('部署自检校验内容集合配置、dist 文章页与域名重定向', () => {
   const check = read('scripts/check-edgeone.mjs');
   assert.match(check, /src\/content\.config\.ts/);
   assert.match(check, /findPostDirs/);
+  assert.match(check, /\$wwwhost/);
   assert.doesNotMatch(check, /services\/posts\.json 无法解析/);
 });
 
