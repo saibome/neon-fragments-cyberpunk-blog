@@ -1,6 +1,6 @@
 # 霓虹碎片 / Neon Fragments
 
-赛博朋克风格的**纯静态博客**，基于 **Astro 7 内容集合 + bun**。没有 React、Hono、SSR 运行时、客户端路由，也没有对外 API 或 Serverless 函数：文章放在 `src/content/posts/`，由 Astro Content Layer 在构建期校验、缓存并交给页面、RSS、sitemap 与 OG 分享图预渲染到 `dist/`；浏览器里的搜索、标签筛选、分页与分享弹窗由原生 JavaScript 直接操作预渲染的 DOM。
+赛博朋克风格的**纯静态博客**，基于 **Astro 7 内容集合 + bun**。没有 React、Hono、SSR 运行时、客户端路由，也没有对外 API 或 Serverless 函数：文章放在 `src/content/posts/`，由 Astro Content Layer 在构建期校验、缓存并交给页面、RSS、sitemap 与 OG 分享图预渲染到 `dist/`；浏览器里的搜索、标签筛选与分页由原生 JavaScript 直接操作预渲染的 DOM。
 
 ## 运行环境
 
@@ -111,7 +111,7 @@ bun run build     # 生成页面、订阅源、sitemap 与分享图
           │                          card/YYYY/MM/DD/slug.png（satori + resvg）
           └── scripts/postbuild.mjs ► 平铺 .html 副本（clean URL 兜底）
 运行期  EdgeOne Pages 静态托管（纯文件，无函数、无常驻服务）
-          └─ 浏览器：原生 JS 负责搜索、标签、分页、分享弹窗、代码块工具栏
+          └─ 浏览器：原生 JS 负责搜索、标签、分页、代码块工具栏
 ```
 
 ### 几处关键设计
@@ -122,7 +122,7 @@ bun run build     # 生成页面、订阅源、sitemap 与分享图
 - **站点地址**：`scripts/env.mjs` 统一解析 `SITE_URL`（shell 环境变量优先，其次 `.env.local`），Astro 配置与页面渲染共用；换域名需要重新构建。
 - **文章左侧「传输数据」**：`src/components/PostDataPanel.astro` 展示发布日期、阅读时间、标签数与 `.MD` 格式标识，数值全部来自内容集合；只渲染一份，挂在 `BaseLayout` 的 `rail` 插槽（站点左侧栏），该侧栏是 `hidden lg:block`，所以移动端不显示此模块。`.MD` 只是纯文本状态显示，不是链接，站点也不发布额外的原始 Markdown 产物。它与作者卡共用 `global.css` 的 `.cyber-panel` / `.cyber-panel__body`：同一套 1px 灰描边、右下切角与极淡网格底，外框只定义一份。
 - **内容安全**：frontmatter 由 zod 校验，类型不对直接让构建失败；Markdown 产出的 HTML 经白名单消毒后才用 `set:html` 注入页面。
-- **零框架交互**：搜索 / 标签 / 分页直接对预渲染的卡片做显隐，**不发起任何网络请求**，无 JS 时全部文章可见；分享弹窗（原生 `<dialog>`）只提供复制链接，代码块工具栏是原生 JS。图标是构建期提取的静态 SVG，不引入图标库。
+- **零框架交互**：搜索 / 标签 / 分页直接对预渲染的卡片做显隐，**不发起任何网络请求**，无 JS 时全部文章可见；代码块工具栏是原生 JS。图标是构建期提取的静态 SVG，不引入图标库。
 - **OG 分享图**：satori 接受 `{ type, props }` 形状的节点对象，因此用 `src/lib/ogImage.ts` 的 `h()` 构造节点树，**不需要 JSX 或 React**；resvg 输出 PNG。
 - **移动端顶栏与正文标题**：`md` 以下只显示 `SAIBO.ME`（Rajdhani 斜体粗体不变）与黄色开口线框（搜索 / 竖线 / 菜单），导航链接和在线状态留在桌面端；搜索按钮聚焦首页 `[data-post-search]`，在文章页则跳 `/#search`。logo 用 8s CSS 周期实现「静止 7s + glitch 1s」，`prefers-reduced-motion` 下自动禁用。正文 `h2` 为黄色粗体带小方块（28px）、`h3` 为青色粗体（24px），样式集中在 `global.css`；文章大标题手机端 36px、桌面 48px，保证任何视口都大于二级标题。
 - **字体分目录**：浏览器字体与构建期字体分开存放，避免 20MB 中文字体被当成静态资源发布。

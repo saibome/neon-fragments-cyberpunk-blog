@@ -62,3 +62,23 @@ test('布局提供左侧栏插槽，未发布多余的原始数据端点', () =>
   assert.doesNotMatch(read('scripts/check-edgeone.mjs'), /`\$\{base\}\.md`/);
   assert.doesNotMatch(read('scripts/dist-pages.mjs'), /slug\.name\.includes\('\.'\)/);
 });
+
+test('文章页不再包含分享弹窗、分享按钮及其专用资源', () => {
+  const source = read('src/pages/[year]/[month]/[day]/[slug].astro');
+  assert.doesNotMatch(source, /ShareModal|data-share-open|分享文章/);
+  assert.doesNotMatch(read('src/styles/global.css'), /data-share-dialog/);
+  assert.doesNotMatch(read('src/pages/gear.astro'), /分享弹窗/);
+
+  for (const file of [
+    'src/components/ShareModal.astro',
+    'src/scripts/share-dialog.js',
+    'src/components/CyberButton.astro'
+  ]) {
+    assert.equal(exists(file), false, `${file} 应已删除`);
+  }
+
+  const icons = JSON.parse(read('src/data/icons.json')) as Record<string, string>;
+  for (const name of ['share-2', 'copy', 'link']) {
+    assert.equal(name in icons, false, `图标 ${name} 只服务于分享弹窗`);
+  }
+});

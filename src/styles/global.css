@@ -455,22 +455,3 @@ body[data-sidebar-open='true'] [data-cyber-menu] .menu-decor {
   border-color: transparent;
 }
 
-dialog[data-share-dialog]::backdrop {
-  background: rgba(0, 0, 0, .8);
-  backdrop-filter: blur(4px);
-}
-
-/* 分享卡片必须自己声明居中：Tailwind preflight 会重置 UA 的 dialog margin，
-   而 showModal() 的 top layer 只有在 fixed + inset:0 + margin:auto 下才双向居中。
-   宽度用 min() 让移动端左右各留 1rem，超长内容可在小屏里滚动。 */
-dialog[data-share-dialog] {
-  position: fixed;
-  inset: 0;
-  margin: auto;
-  width: min(28rem, calc(100% - 2rem));
-  max-width: none;
-  height: fit-content;
-  max-height: calc(100vh - 2rem);
-  max-height: calc(100dvh - 2rem);
-  overflow-y: auto;
-}
