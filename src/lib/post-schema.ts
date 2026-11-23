@@ -1,8 +1,9 @@
-import { z } from 'zod';
+import { z } from 'astro/zod';
 
 /**
  * 内容集合的 frontmatter schema。
- * 单独放在 src/lib 下，让 src/content.config.ts 与 bun test 都能直接引用同一个 zod 4 schema。
+ * 单独放在 src/lib 下，让 src/content.config.ts 与 bun test 都能直接引用同一份 schema；
+ * z 走 Astro 官方的 `astro/zod` 导出，无需在 package.json 里另声明 zod。
  * 注意：date 必填——文章永久链接 /YYYY/MM/DD/slug 依赖它，缺省会让每次构建产生不同 URL。
  */
 export const SLUG_RE = /^[a-zA-Z0-9][a-zA-Z0-9_-]*$/;

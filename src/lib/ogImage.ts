@@ -1,5 +1,5 @@
 import satori from 'satori';
-import { Resvg } from '@resvg/resvg-js';
+import sharp from 'sharp';
 import QRCode from 'qrcode';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -211,7 +211,9 @@ export async function generateOgImage(post: BlogPost): Promise<Uint8Array> {
     ]
   });
 
-  return new Uint8Array(new Resvg(svg).render().asPng());
+  // sharp 是 Astro 官方默认的图片处理服务，这里复用它把 satori 生成的 SVG 光栅化为 PNG，
+  // 不再额外引入单独的 SVG 渲染器。
+  return new Uint8Array(await sharp(Buffer.from(svg)).png().toBuffer());
 }
 
 /** 给静态端点用的路径参数：从内容集合的固定 permalink 解析，避免时区漂移 */

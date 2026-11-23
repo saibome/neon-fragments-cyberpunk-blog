@@ -14,7 +14,7 @@
 
 仓库只使用 bun：包管理、TypeScript 执行、测试（`bun test`）与 CI 全部由 bun 提供，`bun.lock` 是唯一锁文件。Astro CLI 通过 `bun run --bun` 强制在 bun 运行时执行（否则 `#!/usr/bin/env node` 会落到系统 Node；bun 模拟 Node 26.3.0，满足 Astro 7）。按 Astro 官方建议，构建期依赖统一放在 `package.json#dependencies`，不再拆分 `devDependencies`。不要再引入 pnpm / npm / yarn 的锁文件。
 
-**依赖基线（2026-11-23 更新）**：全部依赖已对齐到 registry 最新版（astro 7.4.12、vite 8.3.8、tailwindcss 4.3.5、zod 4.6.7、satori 0.63.2、oxlint 1.93.0、@types/node 26.6.6 等）。正文渲染、代码高亮（Shiki）与图片优化全部由 Astro 默认提供，**不额外安装 Markdown 处理器或消毒插件**；自建的 `marked` / `marked-highlight` / `highlight.js` / `sanitize-html` 以及官方 `@astrojs/markdown-remark` / `rehype-sanitize` 均已移除。唯一例外是 TypeScript 停留在 6.x 最新的 6.0.3：`@astrojs/check@0.9.12` 的 peer 是 `^5 || ^6`，升级到 7.0.2 会让 `astro check` 失效。
+**依赖基线与取舍（2026-11-23 更新）**：原则是**尽量减少外部依赖，优先使用官方最新技术**。全部依赖已对齐到 registry 最新版（astro 7.4.13、vite 8.3.8、tailwindcss 4.3.5、sharp 0.35.5、satori 0.63.2、oxlint 1.94.0、@types/node 26.6.6 等），共 12 个顶层依赖。正文渲染用 Astro 7 默认 Sätteri、高亮用默认 Shiki、图片优化用 `astro:assets`，都无需额外装包；frontmatter schema 改从官方 `astro/zod` 导入，不再直接声明 `zod`（`.astro/content.d.ts` 生成的类型也用这个路径）；OG 卡片复用 Astro 官方默认图片服务 `sharp` 把 satori 的 SVG 光栅化成 PNG，因此移除了 `@resvg/resvg-js`。已移除的还有 `marked` / `marked-highlight` / `highlight.js` / `sanitize-html` / `@astrojs/markdown-remark` / `rehype-sanitize`。唯一例外是 TypeScript 停留在 6.x 最新的 6.0.3：`@astrojs/check@0.9.12` 的 peer 是 `^5 || ^6`，升级到 7.0.2 会让 `astro check` 失效，等官方适配后再升。
 
 EdgeOne Pages 只提供预装 Node（官方清单含 `24.5.0`），因此根目录**不提交 `.nvmrc`**：平台会优先按它切换版本，写非预装版本会在安装依赖前报 `Failed to switch to Node.js x`。云端仍保留 `nodeVersion: 24.5.0`，只用于 `npm i -g bun@1.4.4`；实际构建由 bun 运行时完成，不依赖平台 Node 版本。
 
@@ -41,7 +41,7 @@ bun run build                # astro build → postbuild（无需单独编译内
 │   ├── components/           # 可复用 .astro 组件
 │   ├── content/posts/*.md    # 内容集合的文章原文
 │   ├── content/posts/images/ # 文章配图（相对路径引用，构建期由 Astro 优化为 webp）
-│   ├── content.config.ts     # 内容集合定义（glob loader + zod schema）
+│   ├── content.config.ts     # 内容集合定义（glob loader + 官方 astro/zod schema）
 │   ├── consts.ts             # 站点常量、默认作者、导航项
 │   ├── data/icons.json       # 从 lucide（ISC）提取的静态 SVG
 │   ├── layouts/              # BaseLayout.astro，统一 head / 元信息
@@ -134,7 +134,7 @@ bun run publish --full              # 额外跑 typecheck / lint / test / check:
 
 ```
 构建期  src/content/posts/*.md
-          │ src/content.config.ts：glob() loader + zod frontmatter 校验
+          │ src/content.config.ts：glob() loader + 官方 astro/zod frontmatter 校验
           ▼
         Astro Content Layer（data store：类型安全、校验、缓存）
           │ getCollection('posts') → BlogPost[]（原始 Markdown + 纯文本）
@@ -146,7 +146,7 @@ bun run publish --full              # 额外跑 typecheck / lint / test / check:
           │   └─ src/lib/permalink.ts：UTC 固定链接
           ├── 页面 getStaticPaths() ─► 首页、/net、/gear、文章页、404
           ├── 静态端点 ────────────► rss.xml / sitemap.xml / robots.txt
-          │                          card/YYYY/MM/DD/slug.png（satori + resvg）
+          │                          card/YYYY/MM/DD/slug.png（satori + sharp）
           └── scripts/postbuild.mjs ► 平铺 .html 副本（clean URL 兜底）
 运行期  EdgeOne Pages 静态托管（纯文件，无函数、无常驻服务）
           └─ 浏览器：原生 JS 负责搜索、标签、分页、代码块工具栏
@@ -159,9 +159,9 @@ bun run publish --full              # 额外跑 typecheck / lint / test / check:
 - **永久链接**：`permalink` 在构建期按 UTC 生成一次，页面、sitemap、RSS、OG 图与 canonical 全部只读 `post.permalink`。日期段写错的链接不再有 301 兜底，静态托管会直接返回 404。
 - **站点地址**：`scripts/env.mjs` 统一解析 `SITE_URL`（shell 环境变量优先，其次 `.env.local`），Astro 配置与页面渲染共用；换域名需要重新构建。
 - **文章左侧「传输数据」**：`src/components/PostDataPanel.astro` 展示发布日期、阅读时间、标签数与 `.MD` 格式标识，数值全部来自内容集合；只渲染一份，挂在 `BaseLayout` 的 `rail` 插槽（站点左侧栏），该侧栏是 `hidden lg:block`，所以移动端不显示此模块。`.MD` 只是纯文本状态显示，不是链接，站点也不发布额外的原始 Markdown 产物。它与作者卡共用 `global.css` 的 `.cyber-panel` / `.cyber-panel__body`：同一套 1px 灰描边、右下切角与极淡网格底，外框只定义一份。
-- **内容安全**：frontmatter 由 zod 校验，类型不对直接让构建失败。正文全部来自本人本地 Obsidian 库（`bun run publish` 写入），属可信来源，因此**不额外做 HTML 消毒**——Astro 默认不会过滤 Markdown 里夹带的原始 HTML。若将来接入外部投稿或第三方内容，需要重新评估：可给 Sätteri 挂 `hastPlugins`，或切回 Unified + `rehype-sanitize` 并补回白名单测试。
+- **内容安全**：frontmatter 由官方 `astro/zod` 校验，类型不对直接让构建失败。正文全部来自本人本地 Obsidian 库（`bun run publish` 写入），属可信来源，因此**不额外做 HTML 消毒**——Astro 默认不会过滤 Markdown 里夹带的原始 HTML。若将来接入外部投稿或第三方内容，需要重新评估：可给 Sätteri 挂 `hastPlugins`，或切回 Unified + `rehype-sanitize` 并补回白名单测试。
 - **零框架交互**：搜索 / 标签 / 分页直接对预渲染的卡片做显隐，**不发起任何网络请求**，无 JS 时全部文章可见；代码块工具栏是原生 JS。图标是构建期提取的静态 SVG，不引入图标库。
-- **OG 分享图**：satori 接受 `{ type, props }` 形状的节点对象，因此用 `src/lib/ogImage.ts` 的 `h()` 构造节点树，**不需要 JSX 或 React**；resvg 输出 PNG。
+- **OG 分享图**：satori 接受 `{ type, props }` 形状的节点对象，因此用 `src/lib/ogImage.ts` 的 `h()` 构造节点树，**不需要 JSX 或 React**；satori 输出字形路径的 SVG，再由 Astro 官方默认图片服务 sharp 光栅化为 PNG（无需额外的 SVG 渲染器）。
 - **移动端顶栏与正文标题**：`md` 以下只显示 `SAIBO.ME`（Rajdhani 斜体粗体不变）与黄色开口线框（搜索 / 竖线 / 菜单），导航链接和在线状态留在桌面端；搜索按钮聚焦首页 `[data-post-search]`，在文章页则跳 `/#search`。logo 用 8s CSS 周期实现「静止 7s + glitch 1s」，`prefers-reduced-motion` 下自动禁用。正文 `h2` 为黄色粗体带小方块（28px）、`h3` 为青色粗体（24px），样式集中在 `global.css`；文章大标题手机端 36px、桌面 48px，保证任何视口都大于二级标题。
 - **字体分目录**：浏览器字体与构建期字体分开存放，避免 20MB 中文字体被当成静态资源发布。
 
@@ -250,6 +250,7 @@ bun run check:edgeone   # EdgeOne 部署前自检（CI 亦会执行）
 - 首页把所有文章卡片预渲染进 HTML（利于 SEO），搜索 / 分页 / 标签在客户端完成；文章特别多时可改为静态分页路由。
 - 站点没有运行时 SSR，`SITE_URL` 在构建期固化；跨域名复用同一份构建产物不适用。
 - 已全面采用官方 `render(entry)` 与 Astro 7 默认处理器 **Sätteri**（Rust 实现，无需安装或配置），构建约 1 秒。内容为本人 Obsidian 库的可信内容，因此不再挂载 `rehype-sanitize`；代价是放弃 remark / rehype 插件生态，Markdown 里的原始 HTML 会原样输出。若将来需要插件或不可信内容消毒，再加 `@astrojs/markdown-satteri` 的 `hastPlugins` 或切回 Unified。
+- **依赖策略**：能用 Astro 官方内置能力就不装第三方包（Sätteri、Shiki、`astro:assets`、`astro/zod`、sharp），每加一个依赖都要说明官方没有等价能力。`satori`（OG 布局 → SVG）、`qrcode` + `@types/qrcode`（二维码）、Tailwind 官方 Vite 插件目前没有官方等价物，暂时保留；`tests/content-collections.test.ts` 有断言防止把已精简的依赖重新加回来。升级依赖时保持 Astro / oxlint 最新，唯一受 `@astrojs/check` 限制的是 TypeScript。
 - 没有对外 API、动态查询、Cloud Functions 与错误日期 301：站点前端从不请求接口，静态托管足够；需要这些能力时应作为独立服务接入，而不是重新塞回仓库。
 - 只保留 RSS 一种订阅格式；Atom 与 `/data`、`/api`、`/serve.mjs`、Docker 打包等模板遗留功能已移除。
 - Astro CLI 的 shebang 会落到系统 Node，因此用 `bun run --bun` 强制走 bun 运行时；TypeScript 必须停留在 6.x，`@astrojs/check` 尚未适配 7.x。

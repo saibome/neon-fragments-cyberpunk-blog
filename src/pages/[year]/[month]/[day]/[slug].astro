@@ -93,7 +93,7 @@ const description = post.description || `${post.text.substring(0, 150)}……`;
       </div>
 
       <article class="max-w-none mb-6">
-        {/* 正文由 Astro 官方 render(entry) 编译，内容与消毒均在官方 Markdown 处理器内完成 */}
+        {/* 正文由官方 render(entry) / <Content /> 渲染，使用 Astro 7 默认 Sätteri 处理器 */}
         <div class="cyber-markdown text-gray-300 leading-relaxed font-sans max-w-full">
           <Content />
         </div>

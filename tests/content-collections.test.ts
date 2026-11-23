@@ -85,11 +85,21 @@ test('package.json 不依赖任何额外的 Markdown 渲染 / 消毒库', () => 
   assert.equal(pkg.dependencies['fast-glob'], undefined);
   for (const legacy of [
     'marked', 'marked-highlight', 'highlight.js', 'sanitize-html',
-    '@astrojs/markdown-remark', 'rehype-sanitize'
+    '@astrojs/markdown-remark', 'rehype-sanitize', 'zod', '@resvg/resvg-js'
   ]) {
     assert.equal(pkg.dependencies[legacy], undefined, `已移除 ${legacy}`);
   }
   assert.equal(pkg.devDependencies, undefined, '按 Astro 官方建议，构建期依赖统一放 dependencies');
+});
+
+test('优先复用 Astro 官方内置能力：astro/zod 与 sharp', () => {
+  const pkg = JSON.parse(read('package.json'));
+  assert.match(read('src/lib/post-schema.ts'), /from 'astro\/zod'/, 'schema 用官方导出，不再直接依赖 zod 包');
+  assert.match(read('src/lib/ogImage.ts'), /from 'sharp'/, 'OG 图复用官方默认图片服务');
+  assert.doesNotMatch(read('src/lib/ogImage.ts'), /Resvg/);
+  assert.ok(pkg.dependencies.sharp, 'sharp 被直接 import，必须显式声明以保证云端一致');
+  assert.match(pkg.dependencies.astro, /^\^7\./, '保持 Astro 7 最新版');
+  assert.equal(pkg.dependencies.typescript, '^6.0.3', '@astrojs/check 尚不支持 TypeScript 7');
 });
 
 test('构建后处理直接扫描 dist，不再依赖中间 JSON 清单', () => {
