@@ -60,7 +60,7 @@ test('含特殊字符的标题会被引号包裹', () => {
   assert.equal(replaceTitle('slug: x\ndate: 2026-11-23', '新标题'), 'title: 新标题\nslug: x\ndate: 2026-11-23');
 });
 
-test('Obsidian wiki 图片转成站点路径并给出复制清单', () => {
+test('Obsidian wiki 图片转成 Astro 相对资源路径并给出复制清单', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-publish-'));
   try {
     fs.writeFileSync(path.join(dir, 'shot.jpg'), 'fake');
@@ -69,23 +69,23 @@ test('Obsidian wiki 图片转成站点路径并给出复制清单', () => {
       noteDir: dir,
       slug: 'demo-post'
     });
-    assert.equal(result.body, '开头 ![控制台截图](/images/demo-post.jpg) 结尾');
+    assert.equal(result.body, '开头 ![控制台截图](./images/demo-post.jpg) 结尾');
     assert.equal(result.images.length, 1);
-    assert.match(result.images[0].dest, /public\/images\/demo-post\.jpg$/);
+    assert.match(result.images[0].dest, /src\/content\/posts\/images\/demo-post\.jpg$/);
 
     const second = convertEmbeds('![[shot.jpg]] ![[shot.jpg]]', { vaultRoot: dir, noteDir: dir, slug: 'demo' });
     assert.equal(second.images.length, 2);
-    assert.match(second.body, /\/images\/demo-2\.jpg/);
+    assert.match(second.body, /\.\/images\/demo-2\.jpg/);
     assert.throws(() => convertEmbeds('![[missing.png]]', { vaultRoot: dir, noteDir: dir, slug: 'x' }), /找不到 Obsidian 附件/);
 
     const reused = convertEmbeds('![[shot.jpg]]\n正文紧跟图片。', {
       vaultRoot: dir,
       noteDir: dir,
       slug: 'demo-post',
-      altOverrides: { '/images/demo-post.jpg': '手工写的描述' }
+      altOverrides: { './images/demo-post.jpg': '手工写的描述' }
     });
-    assert.equal(reused.body, '![手工写的描述](/images/demo-post.jpg)\n\n正文紧跟图片。');
-    assert.deepEqual(existingImageAlts(reused.body), { '/images/demo-post.jpg': '手工写的描述' });
+    assert.equal(reused.body, '![手工写的描述](./images/demo-post.jpg)\n\n正文紧跟图片。');
+    assert.deepEqual(existingImageAlts(reused.body), { './images/demo-post.jpg': '手工写的描述' });
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
   }
@@ -95,17 +95,17 @@ test('hash 文件名换成可读 alt，图片前后自动空行，已有 hash al
   const hash = '43a03614-6fce-42b0-9ab9-e4bec986935b';
   assert.equal(isHashName(hash), true);
   assert.equal(isHashName('screenshot'), false);
-  assert.equal(readableAlt({ src: `/tmp/${hash}.png`, alias: '', url: '/images/a.png', altOverrides: {}, title: '一篇随笔' }), '一篇随笔 配图');
+  assert.equal(readableAlt({ src: `/tmp/${hash}.png`, alias: '', url: './images/a.png', altOverrides: {}, title: '一篇随笔' }), '一篇随笔 配图');
 
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-publish-'));
   try {
     fs.writeFileSync(path.join(dir, `${hash}.png`), 'fake');
     const ctx = { vaultRoot: dir, noteDir: dir, slug: 'demo', title: '纳德拉谈编辑器' };
     const spaced = convertEmbeds('正文第一段。\n![[43a03614-6fce-42b0-9ab9-e4bec986935b.png]]\n## 小标题', ctx);
-    assert.equal(spaced.body, '正文第一段。\n\n![纳德拉谈编辑器 配图](/images/demo.png)\n\n## 小标题');
+    assert.equal(spaced.body, '正文第一段。\n\n![纳德拉谈编辑器 配图](./images/demo.png)\n\n## 小标题');
     const fixed = convertEmbeds('![[43a03614-6fce-42b0-9ab9-e4bec986935b.png]]', {
       ...ctx,
-      altOverrides: { '/images/demo.png': hash }
+      altOverrides: { './images/demo.png': hash }
     });
     assert.match(fixed.body, /\[纳德拉谈编辑器 配图\]/);
   } finally {

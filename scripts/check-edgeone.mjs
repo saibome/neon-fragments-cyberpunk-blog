@@ -159,11 +159,12 @@ if (contentFiles.length === 0) fail('src/content/posts/ 中没有文章，部署
 const requiredSources = [
   'src/consts.ts', 'src/types.ts', 'src/lib/permalink.ts',
   'src/lib/post-schema.ts', 'src/lib/post-utils.ts', 'src/lib/posts.ts',
-  'src/lib/markdown.ts', 'src/content/posts'
+  'src/lib/text.ts', 'scripts/markdown-config.mjs', 'src/content/posts'
 ];
 for (const source of requiredSources) {
   if (!inRoot(source)) fail(`Astro 规范目录缺少：${source}`);
 }
+if (inRoot('src/lib/markdown.ts')) fail('自建 Markdown 渲染管线已由 render(entry) 取代，不应回退');
 
 const removed = [
   'cloud-functions', 'scripts/serve.mjs', 'Dockerfile', '.dockerignore',
@@ -187,6 +188,24 @@ for (const file of required) {
 }
 for (const file of ['atom.xml', 'canonical.json', 'data.html', 'api/posts.json', 'api/tags.json']) {
   if (exists(file)) fail(`dist/ 不应包含已移除的产物：${file}`);
+}
+
+// 文章配图必须走 Astro 图片优化，不能退回 public/ 原样复制
+let sourceImages = [];
+try {
+  sourceImages = (await fsp.readdir(path.join(ROOT, 'src/content/posts/images')))
+    .filter(name => /\.(jpe?g|png|webp|avif|gif)$/i.test(name));
+} catch { /* 还没有配图 */ }
+if (sourceImages.length) {
+  let optimized = [];
+  try { optimized = await fsp.readdir(path.join(DIST, '_astro')); } catch { /* 目录缺失会由下面报错 */ }
+  if (!optimized.some(name => name.endsWith('.webp'))) {
+    fail('dist/_astro 缺少优化后的 webp 配图：Markdown 相对路径或 Astro 图片管线未生效');
+  }
+  if (fs.existsSync(path.join(DIST, 'images'))) {
+    fail('dist/images 仍有原样复制的配图，应全部交给 Astro 优化');
+  }
+  notes.push(`配图：${sourceImages.length} 张已由 Astro 优化为 webp`);
 }
 
 const postDirs = await findPostDirs(DIST);

@@ -5,9 +5,9 @@ import {
   sortPosts,
   getTagCounts,
   getPostDetail,
-  postDescription,
-  plainText
+  postDescription
 } from '../src/lib/post-utils';
+import { markdownToText } from '../src/lib/text';
 import { postSchema } from '../src/lib/post-schema';
 import { DEFAULT_AUTHOR } from '../src/consts';
 import type { BlogPost } from '../src/types';
@@ -18,7 +18,8 @@ function makePost(overrides: Partial<BlogPost>): BlogPost {
     title: '标题',
     slug: 'slug',
     permalink: '/2026/11/14/slug',
-    content: '<p>正文</p>',
+    body: '正文',
+    text: '正文',
     date: '2026-11-14T00:00:00.000Z',
     author: DEFAULT_AUTHOR,
     tags: [],
@@ -75,7 +76,7 @@ test('getPostDetail 返回上一篇 / 下一篇引用', () => {
 
 test('postDescription 优先用摘要，否则从正文纯文本截取', () => {
   assert.equal(postDescription(makePost({ description: '自定义摘要' })), '自定义摘要');
-  const fallback = postDescription(makePost({ content: '<p>你好 <strong>夜之城</strong></p>' }));
+  const fallback = postDescription(makePost({ text: '你好 夜之城' }));
   assert.equal(fallback, '你好 夜之城……');
-  assert.equal(plainText('<p>abc</p>'), 'abc');
+  assert.equal(markdownToText('<p>abc</p>'), 'abc');
 });

@@ -23,7 +23,8 @@ import { resolveSiteUrl } from './env.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
 const POSTS_DIR = path.join(ROOT, 'src', 'content', 'posts');
-const IMAGES_DIR = path.join(ROOT, 'public', 'images');
+// 配图与文章同目录，正文用相对路径引用，交给 Astro 的 Markdown 图片管线优化
+const IMAGES_DIR = path.join(POSTS_DIR, 'images');
 const MAP_FILE = path.join(HERE, 'obsidian-publish-map.json');
 const DEFAULT_VAULT = path.join(os.homedir(), 'Documents', 'Obsidian Vault');
 const IMAGE_EXT = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg', '.avif']);
@@ -96,6 +97,8 @@ export function replaceTitle(frontmatter, title) {
 /**
  * 把 Obsidian 的 ![[附件]] 转成标准 Markdown，并给出需要复制的图片清单。
  * 第一张图命名为 <slug>.<ext>，其余 <slug>-2.<ext>，重复发布不会堆积文件。
+ * 图片放在 src/content/posts/images/，正文写 ./images/xxx —— 相对 .md 文件，
+ * 这样 render(entry) 会走 Astro 图片优化（转 webp、加尺寸、lazy）。
  */
 /** 判断附件名是不是 Obsidian 自动生成的 hash / uuid，这种名字不适合当 alt。 */
 export function isHashName(name) {
@@ -118,7 +121,7 @@ export function convertEmbeds(body, { vaultRoot, noteDir, slug, title = '', altO
     if (!src) throw new Error(`找不到 Obsidian 附件：${name}`);
     const ext = path.extname(src).toLowerCase();
     const file = images.length === 0 ? `${slug}${ext}` : `${slug}-${images.length + 1}${ext}`;
-    const url = `/images/${file}`;
+    const url = `./images/${file}`;
     images.push({ src, dest: path.join(IMAGES_DIR, file), url });
     const alt = readableAlt({ src, alias, url, altOverrides, title });
     return `![${alt}](${url})`;
@@ -126,17 +129,17 @@ export function convertEmbeds(body, { vaultRoot, noteDir, slug, title = '', altO
   // 让独占一行的图片自成段落：后面紧跟正文、或前面紧跟正文时都补空行；
   // 更新时复用已有 alt，手工写过的描述性文字不会被机器文件名覆盖。
   const spaced = replaced
-    .replace(/^(!\[[^\]]*\]\(\/images\/[^)]+\))\n(?=[^\n])/gm, '$1\n\n')
-    .replace(/([^\n])\n(!\[[^\]]*\]\(\/images\/[^)]+\)$)/gm, '$1\n\n$2');
+    .replace(/^(!\[[^\]]*\]\(\.\/images\/[^)]+\))\n(?=[^\n])/gm, '$1\n\n')
+    .replace(/([^\n])\n(!\[[^\]]*\]\(\.\/images\/[^)]+\)$)/gm, '$1\n\n$2');
   return { body: spaced, images };
 }
 
-/** 从已发布文章里取出 /images/xxx → alt，供更新模式复用。
+/** 从已发布文章里取出 ./images/xxx → alt，供更新模式复用。
  * @returns {Record<string, string>}
  */
 export function existingImageAlts(text) {
   const alts = {};
-  const re = /!\[([^\]]*)\]\((\/images\/[^)]+)\)/g;
+  const re = /!\[([^\]]*)\]\((\.\/images\/[^)]+)\)/g;
   let match;
   while ((match = re.exec(text))) alts[match[2]] = match[1];
   return alts;

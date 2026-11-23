@@ -1,8 +1,12 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { sanitize } from 'hast-util-sanitize';
+import { toHtml } from 'hast-util-to-html';
+import type { Root } from 'hast';
 import { postSchema } from '../src/lib/post-schema';
 import { mergeAuthor, toBlogPost } from '../src/lib/post-utils';
-import { sanitizeMarkdownHtml, renderMarkdown, computeReadTime } from '../src/lib/markdown';
+import { markdownToText, computeReadTime } from '../src/lib/text';
+import { sanitizeSchema } from '../scripts/markdown-config.mjs';
 import { DEFAULT_AUTHOR } from '../src/consts';
 
 const validFrontmatter = {
@@ -47,18 +51,19 @@ test('无效日期与非法 slug 在条目归一化阶段报错', () => {
   );
 });
 
-test('集合条目生成 UTC permalink、默认档案与消毒后的正文', () => {
+test('集合条目保存原始 Markdown 与纯文本，正文交由 render(entry) 渲染', () => {
+  const body = '# 标题\n\n正文 <script>alert(1)</script>';
   const post = toBlogPost({
     id: 'entry-id',
     data: postSchema.parse(validFrontmatter),
-    body: '# 标题\n\n正文 <script>alert(1)</script>'
+    body
   });
   assert.equal(post.slug, 'test-post', 'frontmatter.slug 优先于 entry.id');
   assert.equal(post.date, '2026-11-14T00:00:00.000Z');
   assert.equal(post.permalink, '/2026/11/14/test-post');
   assert.deepEqual(post.author, DEFAULT_AUTHOR);
-  assert.ok(post.content.includes('<h1>标题</h1>'));
-  assert.ok(!post.content.includes('<script'));
+  assert.equal(post.body, body, '数据层保留原文，不在纯函数层产出 HTML');
+  assert.equal(post.text, '标题 正文', '摘要用的纯文本不含脚本内容');
   assert.ok(post.readTime.startsWith('约 '));
 });
 
@@ -70,26 +75,51 @@ test('作者对象只写一半时与默认档案合并', () => {
   assert.equal(author.handle, DEFAULT_AUTHOR.handle);
 });
 
-test('正文消毒会移除脚本与事件属性，但保留代码高亮 class', () => {
-  const clean = sanitizeMarkdownHtml(
-    '<p onclick="alert(1)">你好<script>alert(2)</script>' +
-    '<code class="hljs language-ts evil">const x = 1;</code></p>' +
-    '<img src="javascript:alert(3)">'
+test('纯文本提取去掉 Markdown 标记与图片，只供摘要 / 阅读时长', () => {
+  assert.equal(
+    markdownToText('# 标题\n\n**加粗** 和 [链接](https://x.com)\n\n![配图](./images/a.png)\n\n`代码`'),
+    '标题 加粗 和 链接 代码'
   );
-
-  assert.ok(!clean.includes('<script'));
-  assert.ok(!clean.includes('onclick'));
-  assert.ok(!clean.includes('evil'));
-  assert.ok(!clean.includes('javascript:'));
-  assert.ok(clean.includes('hljs'));
-  assert.ok(clean.includes('language-ts'));
+  assert.equal(markdownToText('```ts\nconst a = 1;\n```'), '');
+  assert.equal(markdownToText('<script>alert(1)</script>正文'), '正文');
 });
 
-test('Markdown 渲染产出高亮代码且不保留脚本', () => {
-  const html = renderMarkdown('```ts\nconst signal = 1;\n```\n\n<script>alert(1)</script>');
-  assert.ok(html.includes('language-ts'));
-  assert.ok(html.includes('hljs-keyword'));
+test('官方消毒白名单拦截脚本与危险属性，但放行 Astro 图片与 Shiki 高亮', () => {
+  const tree: Root = {
+    type: 'root',
+    children: [
+      { type: 'element', tagName: 'script', properties: {}, children: [{ type: 'text', value: 'alert(1)' }] },
+      { type: 'element', tagName: 'p', properties: { onclick: 'alert(2)' }, children: [{ type: 'text', value: '你好' }] },
+      {
+        type: 'element',
+        tagName: 'img',
+        properties: { src: 'javascript:alert(3)', loading: 'lazy', decoding: 'async', width: '1180', height: '1116' },
+        children: []
+      },
+      {
+        type: 'element',
+        tagName: 'pre',
+        properties: { style: 'color:#e1e4e8', dataLanguage: 'ts', className: ['astro-code', 'github-dark'] },
+        children: [{
+          type: 'element',
+          tagName: 'span',
+          properties: { style: 'color:#F97583' },
+          children: [{ type: 'text', value: 'const' }]
+        }]
+      }
+    ]
+  };
+  const html = toHtml(sanitize(tree, sanitizeSchema));
   assert.ok(!html.includes('<script'));
+  assert.ok(!html.includes('alert('));
+  assert.ok(!html.includes('onclick'));
+  assert.ok(!html.includes('javascript:'));
+  assert.match(html, /loading="lazy"/);
+  assert.match(html, /decoding="async"/);
+  assert.match(html, /width="1180"/, 'Astro 图片优化的防抖动尺寸要保留');
+  assert.match(html, /data-language="ts"/, '代码块工具栏要读语言');
+  assert.match(html, /astro-code/);
+  assert.match(html, /color:#F97583/, 'Shiki 内联高亮色不能丢');
 });
 
 test('阅读时长至少 1 分钟', () => {

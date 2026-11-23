@@ -11,7 +11,10 @@ export interface BlogPost {
   slug: string;
   /** 构建期按 UTC 生成的规范路径 /YYYY/MM/DD/slug */
   permalink: string;
-  content: string;
+  /** 内容集合条目的原始 Markdown，仅用于纯文本摘要 / 阅读时长，正文由 render(entry) 渲染 */
+  body: string;
+  /** 从 body 提取的纯文本，供列表摘要、SEO 描述与 RSS 使用 */
+  text: string;
   description?: string;
   image?: string;
   date: string;

@@ -1,6 +1,5 @@
 ---
 import { DEFAULT_COVER } from '../consts';
-import { plainText } from '../lib/posts';
 import CyberDate from './CyberDate.astro';
 import Icon from './Icon.astro';
 import type { BlogPost } from '../types';
@@ -11,7 +10,7 @@ interface Props {
 
 const { post } = Astro.props;
 const displayImage = post.image || DEFAULT_COVER;
-const summary = post.description || plainText(post.content) || '暂无摘要';
+const summary = post.description || post.text || '暂无摘要';
 ---
 
 <div

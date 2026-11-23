@@ -29,18 +29,36 @@ test('文章原文只放在 src/content/posts，schema 可被测试独立引用'
   assert.doesNotMatch(read('src/lib/post-schema.ts'), /gray-matter/);
 });
 
-test('页面与端点统一通过 getPosts() 读取内容集合', () => {
+test('页面与端点统一通过内容集合读取文章，文章页用官方 render(entry)', () => {
   for (const page of [
     'src/pages/index.astro',
     'src/pages/net.astro',
     'src/pages/rss.xml.ts',
-    'src/pages/sitemap.xml.ts',
-    'src/pages/[year]/[month]/[day]/[slug].astro'
+    'src/pages/sitemap.xml.ts'
   ]) {
     assert.match(read(page), /getPosts\(\)/, `${page} 必须读取内容集合`);
   }
+  const article = read('src/pages/[year]/[month]/[day]/[slug].astro');
+  assert.match(article, /getPostEntries\(\)/);
+  assert.match(article, /render\(entry\)/);
+  assert.match(article, /<Content \/>/);
+  assert.doesNotMatch(article, /set:html=\{post\.content\}/, '正文不应再由自建 HTML 字符串注入');
   assert.match(read('src/lib/posts.ts'), /getCollection\('posts'\)/);
   assert.doesNotMatch(read('src/lib/posts.ts'), /services\/posts\.json/);
+});
+
+test('Markdown 交给 Astro 官方处理器：消毒白名单 + 图片相对路径', () => {
+  const config = read('astro.config.mjs');
+  assert.match(config, /processor: unified\(/);
+  assert.match(config, /rehypeSanitize/);
+  assert.match(config, /sanitizeSchema/);
+  assert.ok(exists('scripts/markdown-config.mjs'));
+  assert.ok(!exists('src/lib/markdown.ts'), '自建 marked / sanitize-html 管线已移除');
+  assert.ok(exists('src/lib/text.ts'), '纯文本工具与渲染解耦');
+  for (const post of ['glm-5-4-coding-plan.md', 'ceo-claude-code-vs-code.md']) {
+    assert.match(read(`src/content/posts/${post}`), /\]\(\.\/images\//, `${post} 的配图必须用相对路径`);
+  }
+  assert.ok(!exists('public/images'), '文章配图不再放 public/ 原样复制');
 });
 
 test('旧的自建内容编译链路与根目录散落源码已清理', () => {
@@ -55,18 +73,22 @@ test('旧的自建内容编译链路与根目录散落源码已清理', () => {
   }
   for (const source of [
     'src/consts.ts', 'src/types.ts', 'src/lib/permalink.ts',
-    'src/lib/markdown.ts', 'src/lib/post-utils.ts', 'src/assets/og-fonts'
+    'src/lib/text.ts', 'src/lib/post-utils.ts', 'src/assets/og-fonts'
   ]) {
     assert.ok(exists(source), `缺少 ${source}`);
   }
+  assert.equal(exists('src/lib/markdown.ts'), false, '不应存在自建 Markdown 渲染器');
 });
 
-test('package.json 不再调用自建内容编译脚本，依赖统一放 dependencies', () => {
+test('package.json 不再依赖自建 Markdown 渲染 / 消毒库', () => {
   const pkg = JSON.parse(read('package.json'));
-  assert.equal(pkg.scripts['build:content'], undefined);
-  assert.doesNotMatch(pkg.scripts.build, /build-content/);
   assert.equal(pkg.dependencies['gray-matter'], undefined);
   assert.equal(pkg.dependencies['fast-glob'], undefined);
+  for (const legacy of ['marked', 'marked-highlight', 'highlight.js', 'sanitize-html']) {
+    assert.equal(pkg.dependencies[legacy], undefined, `已移除 ${legacy}`);
+  }
+  assert.ok(pkg.dependencies['@astrojs/markdown-remark'], '官方 Unified 处理器');
+  assert.ok(pkg.dependencies['rehype-sanitize'], '官方消毒插件');
   assert.equal(pkg.devDependencies, undefined, '按 Astro 官方建议，构建期依赖统一放 dependencies');
 });
 

@@ -275,7 +275,9 @@ body {
 }
 
 .cyber-markdown pre {
-  background: #0a0a0a;
+  /* Shiki 会写入内联 background-color，这里用 !important 保持赛博朋克深色底 */
+  background: #0a0a0a !important;
+  background-color: #0a0a0a !important;
   border: 1px solid #333;
   padding: 1.5rem;
   overflow-x: auto;
@@ -325,16 +327,12 @@ body {
 }
 */.cyber-markdown pre code {
   background: transparent;
-  color: #e0e0e0;
+  color: inherit;
   padding: 0;
   border: none;
 }
 
-/* Override highlight.js background to match cyberpunk theme */
-.cyber-markdown pre code.hljs {
-  background: transparent;
-  padding: 0;
-}
+/* 代码高亮由 Astro 默认 Shiki 输出内联色值，pre 上的 data-language 供工具栏读取 */
 
 .cyber-markdown img {
   max-width: 100%;

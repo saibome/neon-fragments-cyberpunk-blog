@@ -21,14 +21,21 @@ if (article) {
     wrapper.className = 'code-block-wrapper relative group mb-8 border border-cyber-gray bg-[#0a0a0a] w-full overflow-hidden rounded-md';
     pre.parentNode?.insertBefore(wrapper, pre);
     wrapper.appendChild(pre);
-    pre.style.cssText = 'margin:0;padding:1.5rem;border:none;background:transparent;max-width:100%;overflow-x:auto';
+    // 逐项设置样式，保留 Shiki 写入的 color 等高亮属性；整体覆盖 cssText 会把它们抹掉
+    pre.style.margin = '0';
+    pre.style.padding = '1.5rem';
+    pre.style.border = 'none';
+    pre.style.backgroundColor = 'transparent';
+    pre.style.maxWidth = '100%';
+    pre.style.overflowX = 'auto';
 
     const toolbar = document.createElement('div');
     toolbar.className = 'flex items-center justify-between px-4 py-2 border-b border-cyber-gray bg-cyber-dark/50 backdrop-blur-sm';
 
     const code = pre.querySelector('code');
-    const langClass = code?.className.split(' ').find(name => name.startsWith('language-'));
-    const rawLang = (langClass || '').replace('language-', '').toLowerCase();
+    // Astro 7 的 Shiki 在 <pre> 上写 data-language；兼容旧 Markdown 的 language-* class
+    const classLang = code?.className.split(' ').find(name => name.startsWith('language-'));
+    const rawLang = (pre.dataset.language || (classLang || '').replace('language-', '')).toLowerCase();
     const lang = rawLang ? rawLang.toUpperCase() : '文本';
 
     const langLabel = document.createElement('span');

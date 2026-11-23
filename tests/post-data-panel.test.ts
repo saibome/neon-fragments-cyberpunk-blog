@@ -45,7 +45,7 @@ test('作者卡与传输数据面板共用同一套描边与右下切角', () =>
 
 test('文章页只渲染一份左侧面板，移动端不显示', () => {
   const source = read('src/pages/[year]/[month]/[day]/[slug].astro');
-  assert.match(source, /getPosts\(\)/);
+  assert.match(source, /getPostEntries\(\)/);
   assert.match(source, /tagCount=\{post\.tags\.length\}/);
   assert.match(source, /readTime=\{post\.readTime\}/);
   assert.doesNotMatch(source, /rawUrl/, '不再需要原始数据链接');

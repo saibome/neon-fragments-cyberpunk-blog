@@ -1,4 +1,6 @@
 ---
+import { render } from 'astro:content';
+import type { CollectionEntry } from 'astro:content';
 import BaseLayout from '../../../../layouts/BaseLayout.astro';
 import CyberDate from '../../../../components/CyberDate.astro';
 import GlitchText from '../../../../components/GlitchText.astro';
@@ -7,33 +9,36 @@ import PostDataPanel from '../../../../components/PostDataPanel.astro';
 import { DEFAULT_COVER } from '../../../../consts';
 import { cardUrl } from '../../../../lib/permalink';
 import { SITE_URL } from '../../../../lib/site';
-import { getPosts, getPostDetail, plainText } from '../../../../lib/posts';
+import { getPostEntries, getPostDetail } from '../../../../lib/posts';
 import type { BlogPost, PostRef } from '../../../../types';
 
 export async function getStaticPaths() {
-  const posts = await getPosts();
-  return posts.map(post => {
+  const pairs = await getPostEntries();
+  const posts = pairs.map(pair => pair.post);
+  return pairs.map(({ entry, post }) => {
     const parts = post.permalink.match(/^\/(\d{4})\/(\d{2})\/(\d{2})\/([^/]+)$/);
     if (!parts) throw new Error(`无法解析 permalink：${post.permalink}`);
     const [, year, month, day, slug] = parts;
     const detail = getPostDetail(post.slug, posts);
     return {
       params: { year, month, day, slug },
-      props: { post, olderPost: detail?.previous, newerPost: detail?.next }
+      props: { post, entry, olderPost: detail?.previous, newerPost: detail?.next }
     };
   });
 }
 
 interface Props {
   post: BlogPost;
+  entry: CollectionEntry<'posts'>;
   olderPost?: PostRef;
   newerPost?: PostRef;
 }
 
-const { post, olderPost, newerPost } = Astro.props;
+const { post, entry, olderPost, newerPost } = Astro.props;
+const { Content } = await render(entry);
 const displayImage = post.image || DEFAULT_COVER;
 const ogImage = `${SITE_URL}${cardUrl(post.permalink)}`;
-const description = post.description || `${plainText(post.content).substring(0, 150)}……`;
+const description = post.description || `${post.text.substring(0, 150)}……`;
 ---
 
 <BaseLayout
@@ -88,8 +93,10 @@ const description = post.description || `${plainText(post.content).substring(0, 
       </div>
 
       <article class="max-w-none mb-6">
-        {/* 正文 HTML 已在构建期由 sanitize-html 消毒 */}
-        <div class="cyber-markdown text-gray-300 leading-relaxed font-sans max-w-full" set:html={post.content} />
+        {/* 正文由 Astro 官方 render(entry) 编译，内容与消毒均在官方 Markdown 处理器内完成 */}
+        <div class="cyber-markdown text-gray-300 leading-relaxed font-sans max-w-full">
+          <Content />
+        </div>
 
         {post.isGlitch && (
           <div class="mt-8 p-4 border border-cyber-red/50 bg-cyber-red/5 flex items-start space-x-3">

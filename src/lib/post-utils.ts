@@ -2,7 +2,7 @@ import { DEFAULT_AUTHOR } from '../consts';
 import { makePermalink } from './permalink';
 import { SLUG_RE } from './post-schema';
 import type { PostFrontmatter } from './post-schema';
-import { computeReadTime, renderMarkdown } from './markdown';
+import { computeReadTime, markdownToText } from './text';
 import type { BlogPost, PostRef, UserProfile } from '../types';
 
 /** 与 astro:content 解耦的纯函数层：bun test 可以直接 import，页面通过 posts.ts 读取集合 */
@@ -49,18 +49,20 @@ export function toBlogPost(entry: CollectionPostInput): BlogPost {
   }
 
   const date = parsed.toISOString();
+  const text = markdownToText(body);
   return {
     id: data.id || slug,
     title: data.title,
     slug,
     permalink: makePermalink(date, slug),
-    content: renderMarkdown(body),
+    body,
+    text,
     description: data.description,
     image: data.image,
     date,
     author: mergeAuthor(data.author),
     tags: data.tags,
-    readTime: data.readTime || computeReadTime(body),
+    readTime: data.readTime || computeReadTime(text),
     isGlitch: data.isGlitch ?? false
   };
 }
@@ -78,13 +80,9 @@ export function toPostRef(post: BlogPost): PostRef {
   };
 }
 
-export function plainText(html: string): string {
-  return (html || '').replace(/<[^>]*>?/gm, '');
-}
-
 export function postDescription(post: BlogPost): string {
   if (post.description) return post.description;
-  if (post.content) return `${plainText(post.content).substring(0, 200)}……`;
+  if (post.text) return `${post.text.substring(0, 200)}……`;
   return '';
 }
 
