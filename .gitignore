@@ -4,8 +4,8 @@ output/
 # Astro 生成的类型缓存
 .astro/
 
-# 构建产物与 Astro 内容集合缓存（文章原文已入库，不再生成中间 JSON）
-public/images/
+# 构建产物与 Astro 内容集合缓存由 .astro/ 与 dist/ 忽略；
+# public/images/ 存放文章配图，必须随仓库提交，不要重新加入忽略规则。
 
 # EdgeOne Pages 会按根目录 .nvmrc 尝试切换 Node；平台只提供预装版本。
 # 项目已全面使用 bun，不需要 .nvmrc，禁止提交（云端版本由 edgeone.json 锁定）。
