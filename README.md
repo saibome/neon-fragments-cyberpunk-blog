@@ -46,7 +46,7 @@ bun run build                # astro build → postbuild（无需单独编译内
 │   ├── data/icons.json       # 从 lucide（ISC）提取的静态 SVG
 │   ├── layouts/              # BaseLayout.astro，统一 head / 元信息
 │   ├── lib/                  # 构建期纯逻辑
-│   │   ├── feeds.ts  text.ts  ogImage.ts  permalink.ts
+│   │   ├── feeds.ts  text.ts  ogImage.ts  ogCard.ts  permalink.ts
 │   │   ├── post-schema.ts  post-utils.ts  posts.ts  site.ts
 │   ├── pages/                # 文件路由与静态端点
 │   ├── scripts/              # 浏览器端原生 JavaScript
@@ -161,7 +161,7 @@ bun run publish --full              # 额外跑 typecheck / lint / test / check:
 - **文章左侧「传输数据」**：`src/components/PostDataPanel.astro` 展示发布日期、阅读时间、标签数与 `.MD` 格式标识，数值全部来自内容集合；只渲染一份，挂在 `BaseLayout` 的 `rail` 插槽（站点左侧栏），该侧栏是 `hidden lg:block`，所以移动端不显示此模块。`.MD` 只是纯文本状态显示，不是链接，站点也不发布额外的原始 Markdown 产物。它与作者卡共用 `global.css` 的 `.cyber-panel` / `.cyber-panel__body`：同一套 1px 灰描边、右下切角与极淡网格底，外框只定义一份。
 - **内容安全**：frontmatter 由官方 `astro/zod` 校验，类型不对直接让构建失败。正文全部来自本人本地 Obsidian 库（`bun run publish` 写入），属可信来源，因此**不额外做 HTML 消毒**——Astro 默认不会过滤 Markdown 里夹带的原始 HTML。若将来接入外部投稿或第三方内容，需要重新评估：可给 Sätteri 挂 `hastPlugins`，或切回 Unified + `rehype-sanitize` 并补回白名单测试。
 - **零框架交互**：搜索 / 标签 / 分页直接对预渲染的卡片做显隐，**不发起任何网络请求**，无 JS 时全部文章可见；代码块工具栏是原生 JS。图标是构建期提取的静态 SVG，不引入图标库。
-- **OG 分享图**：satori 接受 `{ type, props }` 形状的节点对象，因此用 `src/lib/ogImage.ts` 的 `h()` 构造节点树，**不需要 JSX 或 React**；satori 输出字形路径的 SVG，再由 Astro 官方默认图片服务 sharp 光栅化为 PNG（无需额外的 SVG 渲染器）。
+- **OG 分享图**：satori 接受 `{ type, props }` 形状的节点对象，因此用 `src/lib/ogCard.ts` 的 `h()` 构造节点树（与 `astro:content` 解耦，可直接在 bun test 里渲染验证），**不需要 JSX 或 React**；`src/lib/ogImage.ts` 负责字体、二维码与光栅化——satori 输出字形路径的 SVG，再由 Astro 官方默认图片服务 sharp 转成 PNG（无需额外的 SVG 渲染器）。布局上主容器必须用 `boxSizing: 'border-box'`（satori 默认 content-box，`width:100%` 加 padding/border 会撑到 1332px，把右下二维码裁掉），底部标签 / 二维码行固定在画布底部，长摘要换行也不会把它推出 675px；`tests/og-image.test.ts` 用真实 SVG 守着 1200×675 边界。
 - **移动端顶栏与正文标题**：`md` 以下只显示 `SAIBO.ME`（Rajdhani 斜体粗体不变）与黄色开口线框（搜索 / 竖线 / 菜单），导航链接和在线状态留在桌面端；搜索按钮聚焦首页 `[data-post-search]`，在文章页则跳 `/#search`。logo 用 8s CSS 周期实现「静止 7s + glitch 1s」，`prefers-reduced-motion` 下自动禁用。正文 `h2` 为黄色粗体带小方块（28px）、`h3` 为青色粗体（24px），样式集中在 `global.css`；文章大标题手机端 36px、桌面 48px，保证任何视口都大于二级标题。
 - **字体分目录**：浏览器字体与构建期字体分开存放，避免 20MB 中文字体被当成静态资源发布。
 
