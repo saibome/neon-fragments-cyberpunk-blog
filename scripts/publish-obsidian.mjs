@@ -97,7 +97,20 @@ export function replaceTitle(frontmatter, title) {
  * 把 Obsidian 的 ![[附件]] 转成标准 Markdown，并给出需要复制的图片清单。
  * 第一张图命名为 <slug>.<ext>，其余 <slug>-2.<ext>，重复发布不会堆积文件。
  */
-export function convertEmbeds(body, { vaultRoot, noteDir, slug, altOverrides = {} }) {
+/** 判断附件名是不是 Obsidian 自动生成的 hash / uuid，这种名字不适合当 alt。 */
+export function isHashName(name) {
+  return /^[0-9a-f]{8}-[0-9a-f-]{20,}$/i.test(name) || /^[0-9a-f]{24,}$/i.test(name);
+}
+
+/** 选一个可读的 alt：显式别名 > 已发布文章里手工写过的 alt > 文件名 > 标题兜底。 */
+export function readableAlt({ src, alias, url, altOverrides, title }) {
+  const fallback = path.basename(src, path.extname(src));
+  const candidates = [(alias || '').trim(), altOverrides[url] || '', fallback];
+  const usable = candidates.find(candidate => candidate && !isHashName(candidate));
+  return usable || (title ? `${title} 配图` : '文章配图');
+}
+
+export function convertEmbeds(body, { vaultRoot, noteDir, slug, title = '', altOverrides = {} }) {
   const images = [];
   const replaced = body.replace(WIKI_EMBED_RE, (_match, target, alias) => {
     const name = target.trim();
@@ -107,12 +120,14 @@ export function convertEmbeds(body, { vaultRoot, noteDir, slug, altOverrides = {
     const file = images.length === 0 ? `${slug}${ext}` : `${slug}-${images.length + 1}${ext}`;
     const url = `/images/${file}`;
     images.push({ src, dest: path.join(IMAGES_DIR, file), url });
-    const alt = altOverrides[url] || (alias || path.basename(src, path.extname(src))).trim();
+    const alt = readableAlt({ src, alias, url, altOverrides, title });
     return `![${alt}](${url})`;
   });
-  // 独占一行的图片后面若紧接正文，补空行，避免图片和文字挤进同一个段落；
-  // 更新时复用已有 alt，手工写过的描述性文字不会被 hash 文件名覆盖。
-  const spaced = replaced.replace(/^(!\[[^\]]*\]\(\/images\/[^)]+\))\n(?=[^\n])/gm, '$1\n\n');
+  // 让独占一行的图片自成段落：后面紧跟正文、或前面紧跟正文时都补空行；
+  // 更新时复用已有 alt，手工写过的描述性文字不会被机器文件名覆盖。
+  const spaced = replaced
+    .replace(/^(!\[[^\]]*\]\(\/images\/[^)]+\))\n(?=[^\n])/gm, '$1\n\n')
+    .replace(/([^\n])\n(!\[[^\]]*\]\(\/images\/[^)]+\)$)/gm, '$1\n\n$2');
   return { body: spaced, images };
 }
 
@@ -336,6 +351,7 @@ async function main() {
     vaultRoot,
     noteDir: path.dirname(note.file),
     slug,
+    title,
     altOverrides: existingImageAlts(existingText)
   });
 
