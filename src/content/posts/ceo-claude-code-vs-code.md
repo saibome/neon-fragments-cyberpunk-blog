@@ -7,7 +7,8 @@ description: 这几天，不少开发者炫耀自己已经好几个月没打开�
 ---
 
 这几天，不少开发者炫耀自己已经好几个月没打开过 VS Code。如今微软 CEO 萨提亚 · 纳德拉表示，他完全了解这一现象。Anthropic 推出 Claude Code 后，**VS Code 等传统代码编辑器、IDE 大概六个月就失去了存在感**。
-![43a03614-6fce-42b0-9ab9-e4bec986935b](/images/ceo-claude-code-vs-code.png)
+
+![微软 CEO 纳德拉感叹：Claude Code 仅半年动摇 VS Code 地位 配图](/images/ceo-claude-code-vs-code.png)
 
 ## 事实
 
