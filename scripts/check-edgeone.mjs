@@ -159,12 +159,13 @@ if (contentFiles.length === 0) fail('src/content/posts/ 中没有文章，部署
 const requiredSources = [
   'src/consts.ts', 'src/types.ts', 'src/lib/permalink.ts',
   'src/lib/post-schema.ts', 'src/lib/post-utils.ts', 'src/lib/posts.ts',
-  'src/lib/text.ts', 'scripts/markdown-config.mjs', 'src/content/posts'
+  'src/lib/text.ts', 'src/content/posts'
 ];
 for (const source of requiredSources) {
   if (!inRoot(source)) fail(`Astro 规范目录缺少：${source}`);
 }
 if (inRoot('src/lib/markdown.ts')) fail('自建 Markdown 渲染管线已由 render(entry) 取代，不应回退');
+if (inRoot('scripts/markdown-config.mjs')) fail('消毒白名单已移除，正文使用 Astro 7 默认 Sätteri 处理器');
 
 const removed = [
   'cloud-functions', 'scripts/serve.mjs', 'Dockerfile', '.dockerignore',

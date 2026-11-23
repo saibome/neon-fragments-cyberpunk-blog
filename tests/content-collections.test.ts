@@ -47,12 +47,11 @@ test('页面与端点统一通过内容集合读取文章，文章页用官方 r
   assert.doesNotMatch(read('src/lib/posts.ts'), /services\/posts\.json/);
 });
 
-test('Markdown 交给 Astro 官方处理器：消毒白名单 + 图片相对路径', () => {
+test('Markdown 使用 Astro 7 默认 Sätteri 处理器：无消毒插件 + 图片相对路径', () => {
   const config = read('astro.config.mjs');
-  assert.match(config, /processor: unified\(/);
-  assert.match(config, /rehypeSanitize/);
-  assert.match(config, /sanitizeSchema/);
-  assert.ok(exists('scripts/markdown-config.mjs'));
+  assert.doesNotMatch(config, /processor:\s*\w+\(/, '不显式指定处理器，使用默认 Sätteri');
+  assert.doesNotMatch(config, /rehypeSanitize|sanitizeSchema|@astrojs\/markdown-remark/);
+  assert.ok(!exists('scripts/markdown-config.mjs'), '消毒白名单配置已删除');
   assert.ok(!exists('src/lib/markdown.ts'), '自建 marked / sanitize-html 管线已移除');
   assert.ok(exists('src/lib/text.ts'), '纯文本工具与渲染解耦');
   for (const post of ['glm-5-4-coding-plan.md', 'ceo-claude-code-vs-code.md']) {
@@ -80,15 +79,16 @@ test('旧的自建内容编译链路与根目录散落源码已清理', () => {
   assert.equal(exists('src/lib/markdown.ts'), false, '不应存在自建 Markdown 渲染器');
 });
 
-test('package.json 不再依赖自建 Markdown 渲染 / 消毒库', () => {
+test('package.json 不依赖任何额外的 Markdown 渲染 / 消毒库', () => {
   const pkg = JSON.parse(read('package.json'));
   assert.equal(pkg.dependencies['gray-matter'], undefined);
   assert.equal(pkg.dependencies['fast-glob'], undefined);
-  for (const legacy of ['marked', 'marked-highlight', 'highlight.js', 'sanitize-html']) {
+  for (const legacy of [
+    'marked', 'marked-highlight', 'highlight.js', 'sanitize-html',
+    '@astrojs/markdown-remark', 'rehype-sanitize'
+  ]) {
     assert.equal(pkg.dependencies[legacy], undefined, `已移除 ${legacy}`);
   }
-  assert.ok(pkg.dependencies['@astrojs/markdown-remark'], '官方 Unified 处理器');
-  assert.ok(pkg.dependencies['rehype-sanitize'], '官方消毒插件');
   assert.equal(pkg.devDependencies, undefined, '按 Astro 官方建议，构建期依赖统一放 dependencies');
 });
 

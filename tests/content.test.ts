@@ -1,12 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { sanitize } from 'hast-util-sanitize';
-import { toHtml } from 'hast-util-to-html';
-import type { Root } from 'hast';
 import { postSchema } from '../src/lib/post-schema';
 import { mergeAuthor, toBlogPost } from '../src/lib/post-utils';
 import { markdownToText, computeReadTime } from '../src/lib/text';
-import { sanitizeSchema } from '../scripts/markdown-config.mjs';
 import { DEFAULT_AUTHOR } from '../src/consts';
 
 const validFrontmatter = {
@@ -82,44 +78,6 @@ test('纯文本提取去掉 Markdown 标记与图片，只供摘要 / 阅读时�
   );
   assert.equal(markdownToText('```ts\nconst a = 1;\n```'), '');
   assert.equal(markdownToText('<script>alert(1)</script>正文'), '正文');
-});
-
-test('官方消毒白名单拦截脚本与危险属性，但放行 Astro 图片与 Shiki 高亮', () => {
-  const tree: Root = {
-    type: 'root',
-    children: [
-      { type: 'element', tagName: 'script', properties: {}, children: [{ type: 'text', value: 'alert(1)' }] },
-      { type: 'element', tagName: 'p', properties: { onclick: 'alert(2)' }, children: [{ type: 'text', value: '你好' }] },
-      {
-        type: 'element',
-        tagName: 'img',
-        properties: { src: 'javascript:alert(3)', loading: 'lazy', decoding: 'async', width: '1180', height: '1116' },
-        children: []
-      },
-      {
-        type: 'element',
-        tagName: 'pre',
-        properties: { style: 'color:#e1e4e8', dataLanguage: 'ts', className: ['astro-code', 'github-dark'] },
-        children: [{
-          type: 'element',
-          tagName: 'span',
-          properties: { style: 'color:#F97583' },
-          children: [{ type: 'text', value: 'const' }]
-        }]
-      }
-    ]
-  };
-  const html = toHtml(sanitize(tree, sanitizeSchema));
-  assert.ok(!html.includes('<script'));
-  assert.ok(!html.includes('alert('));
-  assert.ok(!html.includes('onclick'));
-  assert.ok(!html.includes('javascript:'));
-  assert.match(html, /loading="lazy"/);
-  assert.match(html, /decoding="async"/);
-  assert.match(html, /width="1180"/, 'Astro 图片优化的防抖动尺寸要保留');
-  assert.match(html, /data-language="ts"/, '代码块工具栏要读语言');
-  assert.match(html, /astro-code/);
-  assert.match(html, /color:#F97583/, 'Shiki 内联高亮色不能丢');
 });
 
 test('阅读时长至少 1 分钟', () => {
