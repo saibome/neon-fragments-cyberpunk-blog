@@ -96,6 +96,31 @@ bun run dev       # 新增/修改 .md 后集合自动同步
 bun run build     # 生成页面、订阅源、sitemap 与分享图
 ```
 
+## 从 Obsidian 一键发布
+
+`bun run publish` 把「挑笔记 → 转换 → 构建 → 提交 → 推送」收成一条命令，实现在 `scripts/publish-obsidian.mjs`。默认库是 `~/Documents/Obsidian Vault`（可用 `OBSIDIAN_VAULT` 或 `--vault` 改），每次自动取修改时间最新的 `.md`。
+
+```bash
+bun run publish                     # 发布 / 更新最新一篇：构建 + commit + push github/main
+bun run publish --dry-run           # 只预览会生成什么，不落盘、不构建、不提交
+bun run publish --no-push           # 本地提交，先不推送
+bun run publish --file "笔记.md"     # 指定 vault 内的笔记（相对路径或绝对路径）
+bun run publish --slug my-post      # 指定 slug，也可用来强制更新某篇
+bun run publish --tags AI,随笔      # 覆盖新建文章的标签（默认「随笔」）
+bun run publish --full              # 额外跑 typecheck / lint / test / check:edgeone
+```
+
+| 环节 | 行为 |
+| :--- | :--- |
+| 选文章 | 全库 `.md` 按修改时间倒序，跳过 `.obsidian`、空白 / 未写完的笔记与写作项目里 `binder-status: draft` + `word-count: 0` 的空模板；想强制发布某篇用 `--file` |
+| frontmatter | 新建时生成 `title / slug / date / tags / description`；标题取笔记 frontmatter 或文件名，slug 取标题里的英文数字 token（纯中文退回 `post-YYYYMMDD`），摘要从正文压成一行短句，避免 OG 卡片裁字 |
+| 配图 | `![[附件]]` 转成 `![alt](/images/...)` 并复制到 `public/images/`，第一张命名为 `<slug>.<ext>`，重复发布不会堆积文件 |
+| 更新 | `scripts/obsidian-publish-map.json` 记录「笔记 → slug」；同一篇再跑会沿用原 `slug` 与 `date`，**永久链接不变**，且只替换标题与正文，手工调过的 `description` / `tags` / `image` 全部保留 |
+| 校验 | 默认只跑 `bun run build`（内容集合 schema 校验 + 页面 / RSS / sitemap / OG 图），约 2 秒；`--full` 才跑全套质量卡口 |
+| 发布 | 内容无变化直接跳过提交；否则只 `git add` 本次相关文件、commit、push `github/main` 触发 EdgeOne 自动部署 |
+
+笔记改了想同步，直接再跑一次 `bun run publish` 即可；想调整摘要、标签、封面，直接编辑 `src/content/posts/` 里生成的 `.md`，脚本更新时不会覆盖这些字段。换了 Obsidian 库就设 `OBSIDIAN_VAULT=/path/to/vault`（或 `--vault`），笔记改了名用 `--slug <原 slug>` 指回已发布的文章；库里只剩空笔记时脚本会列出候选并停下，不会误发。云端构建约 30 秒生效，这段是 GitHub → EdgeOne 的固有耗时，本地流程已压到一条命令。
+
 ## 架构
 
 ```

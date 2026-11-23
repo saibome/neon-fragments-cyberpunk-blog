@@ -17,6 +17,7 @@
   },
   "scripts": {
     "dev": "bun run --bun astro dev --port 3000 --host 0.0.0.0",
+    "publish": "bun scripts/publish-obsidian.mjs",
     "build": "bun run --bun astro build && bun scripts/postbuild.mjs",
     "build:edgeone": "bun run build && bun run check:edgeone",
     "check:edgeone": "bun scripts/check-edgeone.mjs",
