@@ -2,6 +2,8 @@
 
 赛博朋克风格的**纯静态博客**，基于 **Astro 7 内容集合 + bun**。没有 React、Hono、SSR 运行时、客户端路由，也没有对外 API 或 Serverless 函数：文章放在 `src/content/posts/`，由 Astro Content Layer 在构建期校验、缓存并交给页面、RSS、sitemap 与 OG 分享图预渲染到 `dist/`；浏览器里的搜索、标签筛选与分页由原生 JavaScript 直接操作预渲染的 DOM。
 
+> 全部命令（环境 / 开发 / `publish` 所有参数 / 质量卡口 / 部署 / 线上核验）整理在 [COMMANDS.md](./COMMANDS.md)。
+
 ## 运行环境
 
 | 项目 | 版本 | 约定位置 |
