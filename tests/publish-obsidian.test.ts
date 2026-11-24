@@ -7,6 +7,8 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   slugFromTitle,
+  normalizeSlug,
+  normalizeDate,
   toSummary,
   splitFrontmatter,
   parseFrontmatter,
@@ -157,6 +159,82 @@ test('dry-run 把笔记块序列 tags 带进文章；--tags 显式指定时优�
 
     const fromCli = runPublish(['--dry-run', '--vault', vault, '--tags', 'CLI,标签']);
     assert.match(fromCli, /tags: \[CLI, 标签\]/, 'CLI 显式参数优先级最高');
+  } finally {
+    fs.rmSync(vault, { recursive: true, force: true });
+  }
+});
+
+test('笔记 slug 按合法形式规范化：空格 / 破折号 / 中文 / 超长都安全处理', () => {
+  const long = normalizeSlug('Viewing Earth from Mars—A Planetary-Scale Civilization Is Being Born');
+  assert.match(long, /^[a-z0-9][a-z0-9_-]*$/);
+  assert.ok(long.length <= 60, '超长 slug 应截断');
+  assert.ok(!long.endsWith('-'), '超长应在词边界截断，不留尾随连字符');
+  assert.ok(long.startsWith('viewing-earth-from-mars'));
+
+  assert.equal(normalizeSlug('  Hello—World!! '), 'hello-world');
+  assert.equal(normalizeSlug('My_Post'), 'my_post');
+  assert.equal(normalizeSlug('GLM-5.4 Coding Plan'), 'glm-5-4-coding-plan');
+  assert.equal(normalizeSlug('纯中文标题'), '', '纯中文无法生成合法 slug，交给调用方回退');
+  assert.equal(normalizeSlug('———'), '');
+  assert.equal(normalizeSlug(''), '');
+  assert.equal(normalizeSlug(undefined), '');
+});
+
+test('笔记 date 规范化成 UTC 的 YYYY-MM-DD，无效日期安全回退', () => {
+  assert.equal(normalizeDate('2026-11-25'), '2026-11-25');
+  assert.equal(normalizeDate('2026/11/5'), '2026-11-05');
+  assert.equal(normalizeDate('2026.2.3'), '2026-02-03');
+  assert.equal(normalizeDate('2026-11-25T10:30:00'), '2026-11-25');
+  assert.equal(normalizeDate('2026-11-25 10:30'), '2026-11-25');
+  assert.equal(normalizeDate('2026-02-30'), '', '不存在的日期不能被 Date 自动滚动');
+  assert.equal(normalizeDate('2026-13-01'), '');
+  assert.equal(normalizeDate('November 25, 2026'), '');
+  assert.equal(normalizeDate('2026-11-25abc'), '');
+  assert.equal(normalizeDate(''), '');
+  assert.equal(normalizeDate(undefined), '');
+});
+
+test('dry-run：笔记 slug / date 规范化后进入新建文章，且 Astro schema 能识别', () => {
+  assert.ok(yaml, '需要 bun 内置 YAML 解析来做真实校验');
+  const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-note-meta-'));
+  try {
+    fs.writeFileSync(
+      path.join(vault, '火星笔记.md'),
+      '---\ntitle: 站在火星看地球\nslug: Viewing Earth from Mars—A Planetary-Scale Civilization Is Being Born\ndate: 2026/11/20\ntags:\n  - AI\n---\n\n这是一篇写好了的完整文章内容，用来验证笔记属性会被规范化。'
+    );
+    const out = runPublish(['--dry-run', '--vault', vault]);
+    const slug = out.match(/目标：src\/content\/posts\/([a-z0-9_-]+)\.md/)?.[1] ?? '';
+    assert.match(slug, /^[a-z0-9][a-z0-9_-]*$/);
+    assert.match(out, new RegExp(`slug: ${slug}`));
+    assert.match(out, /date: 2026-11-20/);
+    assert.match(out, /\/2026\/11\/20\//, 'URL 的日期段也应来自笔记 date');
+    assert.match(out, /笔记属性：slug/, '预览里要显示识别到的笔记属性');
+    assert.match(out, /tags: \[AI\]/);
+
+    const frontmatter = out.match(/--- 预览（前 20 行）---\n---\n([\s\S]*?)\n---/)?.[1] ?? '';
+    assert.ok(frontmatter, '预览应包含完整 frontmatter');
+    const parsed = yaml.parse(frontmatter);
+    assert.equal(parsed.slug, slug);
+    assert.equal(parsed.date, '2026-11-20');
+    assert.deepEqual(parsed.tags, ['AI']);
+    const result = postSchema.safeParse(parsed);
+    assert.equal(result.success, true, 'Astro schema 必须接受规范化后的 slug / date / tags');
+  } finally {
+    fs.rmSync(vault, { recursive: true, force: true });
+  }
+});
+
+test('批量时规范化后的笔记 slug 撞车仍会自动加 -2', () => {
+  const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-note-slug-clash-'));
+  try {
+    const note = '---\nslug: Same Post Name\ndate: 2026-11-20\n---\n\n';
+    fs.writeFileSync(path.join(vault, 'a.md'), `${note}第一篇写好了的完整文章内容。`);
+    fs.writeFileSync(path.join(vault, 'b.md'), `${note}第二篇写好了的完整文章内容。`);
+    const out = runPublish(['--all', '--dry-run', '--vault', vault]);
+    const slugs = [...out.matchAll(/src\/content\/posts\/([a-z0-9-]+)\.md/g)].map(match => match[1]);
+    assert.equal(slugs.length, 2);
+    assert.ok(slugs.includes('same-post-name'));
+    assert.ok(slugs.includes('same-post-name-2'), '撞车的 slug 应自动加 -2');
   } finally {
     fs.rmSync(vault, { recursive: true, force: true });
   }

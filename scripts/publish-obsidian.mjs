@@ -14,6 +14,7 @@
  * 只替换标题、正文，以及笔记里明确写过的 tags；
  * frontmatter 里手工调过的 description / image 等仍保留。
  * 笔记 tags 支持 Obsidian Properties 的块序列、行内数组、逗号分隔与 # 前缀。
+ * 新建时还读取笔记的 slug / date 属性并规范化（见 normalizeSlug / normalizeDate）。
  * 来源关系记录在 scripts/obsidian-publish-map.json，随仓库提交。
  */
 import fs from 'node:fs';
@@ -42,6 +43,45 @@ export function slugFromTitle(title, date) {
     .filter(Boolean);
   const joined = tokens.join('-').slice(0, 60).replace(/-+$/, '');
   return joined || `post-${date.replace(/-/g, '')}`;
+}
+
+/** 与 src/lib/post-schema.ts 的 SLUG_RE 一致：字母数字开头，只允许字母数字、-、_。 */
+const SLUG_MAX = 60;
+
+/**
+ * 把笔记里的 slug 属性规范化成内容集合接受的合法 slug：
+ * 空格 / 中文 / 破折号等统一转连字符，超长在词边界截断。
+ * 纯中文或纯符号等无法生成时返回 ''，由调用方回退到标题生成。
+ */
+export function normalizeSlug(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return '';
+  let slug = text
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^[-_]+|[-_]+$/g, '');
+  if (slug.length > SLUG_MAX) {
+    const cut = slug.slice(0, SLUG_MAX);
+    slug = cut.includes('-') ? cut.slice(0, cut.lastIndexOf('-')) : cut;
+  }
+  slug = slug.replace(/[-_]+$/g, '');
+  return /^[a-z0-9][a-z0-9_-]*$/.test(slug) ? slug : '';
+}
+
+/**
+ * 把笔记里的 date 属性规范化成 UTC 的 YYYY-MM-DD。
+ * 接受 YYYY-MM-DD / YYYY/MM/DD / YYYY.MM.DD 及后附时间；无效日期返回 '' 由调用方回退。
+ */
+export function normalizeDate(value) {
+  const match = String(value ?? '').trim().match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:$|[T\s].*$)/);
+  if (!match) return '';
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (parsed.getUTCFullYear() !== year || parsed.getUTCMonth() !== month - 1 || parsed.getUTCDate() !== day) return '';
+  return `${match[1]}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 /** 生成单行短摘要，让 OG 卡片与 RSS 描述保持简洁（卡片裁切已在布局层修复）。 */
@@ -346,6 +386,8 @@ function printUsage() {
   --help          显示本说明
 
 --all 不能与 --file / --slug / --title 同用（这些只作用于单篇）。
+笔记的 slug / date 属性会规范化（非法字符转连字符、日期统一 YYYY-MM-DD）后用于新建文章；
+更新已发布文章时沿用原 slug / date，永久链接不变。
 默认 vault：${DEFAULT_VAULT}`);
 }
 
@@ -369,9 +411,14 @@ function git(args) {
  */
 function planNote(note, { args, vaultRoot, date, map, usedSlugs }) {
   const noteMeta = note.meta;
+  // 笔记的 slug / date 属性先规范化，只在新建文章时使用；
+  // 更新已有文章时以文章原本的 slug / date 为准，永久链接不变。
+  const noteSlug = normalizeSlug(noteMeta.slug);
+  const noteDate = normalizeDate(noteMeta.date);
+  const newPostDate = noteDate || date;
   const title = args.title || noteMeta.title || path.basename(note.file, '.md');
   const registered = map.posts[note.rel];
-  let slug = args.slug || registered?.slug || slugFromTitle(title, date);
+  let slug = args.slug || registered?.slug || noteSlug || slugFromTitle(title, newPostDate);
 
   let postPath = path.join(POSTS_DIR, `${slug}.md`);
   let adopt = false;
@@ -394,6 +441,8 @@ function planNote(note, { args, vaultRoot, date, map, usedSlugs }) {
 
   const isUpdate = Boolean(registered || adopt) || fs.existsSync(postPath);
   const existingText = isUpdate && fs.existsSync(postPath) ? fs.readFileSync(postPath, 'utf8') : '';
+  const existingDate = existingText ? parseFrontmatter(splitFrontmatter(existingText).frontmatter).date : '';
+  const postDate = /^\d{4}-\d{2}-\d{2}$/.test(existingDate || '') ? existingDate : newPostDate;
 
   const { body: rawBody } = splitFrontmatter(note.text);
   const converted = convertEmbeds(rawBody, {
@@ -422,15 +471,13 @@ function planNote(note, { args, vaultRoot, date, map, usedSlugs }) {
   } else {
     const summary = args.summary || noteMeta.description || toSummary(rawBody);
     const tags = resolvedTags.length ? resolvedTags : ['随笔'];
-    content = buildPost({ title, slug, date, tags, description: summary, body: converted.body });
+    content = buildPost({ title, slug, date: postDate, tags, description: summary, body: converted.body });
   }
 
-  const existingDate = existingText ? parseFrontmatter(splitFrontmatter(existingText).frontmatter).date : '';
-  const linkDate = /^\d{4}-\d{2}-\d{2}$/.test(existingDate || '') ? existingDate : date;
-  const url = `${resolveSiteUrl(ROOT)}/${linkDate.replace(/-/g, '/')}/${slug}/`;
+  const url = `${resolveSiteUrl(ROOT)}/${postDate.replace(/-/g, '/')}/${slug}/`;
 
   return {
-    note, title, slug, postPath, url,
+    note, title, slug, postPath, url, noteSlug, noteDate, postDate,
     isUpdate, adopt, registered, existingText, content,
     unchanged: fs.existsSync(postPath) && fs.readFileSync(postPath, 'utf8') === content,
     images: converted.images
@@ -452,6 +499,9 @@ function printPlan(plan, { dryRun, compact }) {
     console.log(`模式：${plan.isUpdate ? '更新已有文章' : '新建文章'}${plan.adopt ? '（同名文章已登记接管）' : ''}`);
     console.log(`标题：${plan.title}`);
     console.log(`目标：src/content/posts/${plan.slug}.md`);
+    if (plan.noteSlug || plan.noteDate) {
+      console.log(`笔记属性：slug ${plan.noteSlug || '未设置'} · date ${plan.noteDate || '未设置'}${plan.isUpdate ? '（更新沿用原值，链接不变）' : ''}`);
+    }
     console.log(`链接：${plan.url}`);
     console.log(`配图：${plan.images.length ? plan.images.map(item => item.url).join('、') : '无'}`);
   }
