@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import {
   slugFromTitle,
   toSummary,
@@ -20,13 +22,25 @@ import {
   collectNotes
 } from '../scripts/publish-obsidian.mjs';
 
+const scriptPath = fileURLToPath(new URL('../scripts/publish-obsidian.mjs', import.meta.url));
+const projectRoot = path.resolve(path.dirname(scriptPath), '..');
+const postsDir = path.join(projectRoot, 'src', 'content', 'posts');
+
+function runPublish(args: string[]) {
+  return execFileSync(process.execPath, [scriptPath, ...args], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
+}
+
 test('标题里的英文数字 token 生成可读 slug，纯中文退回日期兜底', () => {
   assert.equal(slugFromTitle('智谱 GLM-5.4 模型发布，已上线 Coding Plan', '2026-11-23'), 'glm-5-4-coding-plan');
   assert.equal(slugFromTitle('夜之城随笔', '2026-11-23'), 'post-20261123');
   assert.match(slugFromTitle('Hello, World!', '2026-11-23'), /^[a-z0-9][a-z0-9_-]*$/);
 });
 
-test('摘要压成单行且不会过长，避免 OG 卡片裁字', () => {
+test('摘要压成单行且不会过长，保持 OG 卡片与 RSS 简洁', () => {
   assert.equal(toSummary('**加粗** 与 [链接](https://x.com)、`代码`'), '加粗 与 链接、代码');
   assert.equal(toSummary('![[a.png]]\n\n正文第一句。'), '正文第一句。');
   assert.ok(toSummary('很长的内容'.repeat(30)).length <= 35);
@@ -140,5 +154,59 @@ test('收集笔记按修改时间倒序，并跳过空笔记、短笔记与写�
     assert.ok(!notes.some(note => note.rel.endsWith('draft.md')));
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test('--all 批量预览：列出全部可发布笔记、跳过空笔记、同批不撞 slug 且不写盘', () => {
+  const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-batch-'));
+  try {
+    fs.writeFileSync(path.join(vault, '空笔记.md'), '');
+    fs.writeFileSync(path.join(vault, '夜之城随笔.md'), '这是第一篇写好了的完整文章内容。');
+    fs.writeFileSync(path.join(vault, '第二篇中文笔记.md'), '这是第二篇写好了的完整文章内容。');
+    const before = fs.readdirSync(postsDir).filter(file => file.endsWith('.md')).sort();
+
+    const out = runPublish(['--all', '--dry-run', '--vault', vault]);
+    assert.match(out, /批量模式：2 篇可发布笔记/);
+    assert.match(out, /已跳过 1 篇空白 \/ 未写完/);
+    assert.match(out, /夜之城随笔/);
+    assert.match(out, /第二篇中文笔记/);
+    assert.ok(!out.includes('空笔记.md'), '空笔记不应进入清单');
+    assert.match(out, /\[dry-run\] 未写入任何文件/);
+
+    // 两篇纯中文标题都会退回到 post-YYYYMMDD，批量时第二篇必须自动加后缀。
+    const slugs = [...out.matchAll(/src\/content\/posts\/([a-z0-9-]+)\.md/g)].map(match => match[1]);
+    assert.equal(slugs.length, 2);
+    assert.equal(new Set(slugs).size, 2, '同批笔记不能互相覆盖');
+    assert.ok(slugs.some(slug => slug.endsWith('-2')), '撞车的 slug 应自动加 -2');
+
+    const after = fs.readdirSync(postsDir).filter(file => file.endsWith('.md')).sort();
+    assert.deepEqual(after, before, 'dry-run 不能写入任何文章');
+  } finally {
+    fs.rmSync(vault, { recursive: true, force: true });
+  }
+});
+
+test('不带 --all 时仍只处理最新一篇；--all 与单篇参数互斥', () => {
+  const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-batch-single-'));
+  try {
+    fs.writeFileSync(path.join(vault, 'older.md'), '这是较早写好的一篇文章内容。');
+    fs.writeFileSync(path.join(vault, 'newer.md'), '这是刚刚写完的最新一篇文章内容。');
+    fs.utimesSync(path.join(vault, 'newer.md'), new Date('2026-11-24T12:00:00Z'), new Date('2026-11-24T12:00:00Z'));
+    fs.utimesSync(path.join(vault, 'older.md'), new Date('2026-11-20T12:00:00Z'), new Date('2026-11-20T12:00:00Z'));
+
+    const single = runPublish(['--dry-run', '--vault', vault]);
+    assert.ok(!single.includes('批量模式'), '默认模式不应切换成批量');
+    assert.match(single, /来源：newer\.md/);
+    assert.ok(!single.includes('来源：older.md'), '默认只选最新一篇');
+
+    let stderr = '';
+    try {
+      runPublish(['--all', '--file', 'newer.md', '--vault', vault]);
+    } catch (error) {
+      stderr = String((error as { stderr?: Buffer }).stderr ?? error);
+    }
+    assert.match(stderr, /--all 是批量模式，不能与 --file/);
+  } finally {
+    fs.rmSync(vault, { recursive: true, force: true });
   }
 });
