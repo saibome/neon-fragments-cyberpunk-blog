@@ -11,7 +11,9 @@
  *   bun run publish --full             额外跑 typecheck / lint / test / check:edgeone
  *
  * 更新语义：同一篇笔记重复发布会沿用原 slug 与 date（永久链接不变），
- * 只替换标题与正文；frontmatter 里手工调过的 description / tags / image 等都保留。
+ * 只替换标题、正文，以及笔记里明确写过的 tags；
+ * frontmatter 里手工调过的 description / image 等仍保留。
+ * 笔记 tags 支持 Obsidian Properties 的块序列、行内数组、逗号分隔与 # 前缀。
  * 来源关系记录在 scripts/obsidian-publish-map.json，随仓库提交。
  */
 import fs from 'node:fs';
@@ -64,28 +66,74 @@ export function splitFrontmatter(text) {
   return match ? { frontmatter: match[1], body: match[2] } : { frontmatter: '', body: text };
 }
 
+/** 去掉 frontmatter 标量外层的成对引号。 */
+function unquote(value) {
+  return (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))
+    ? value.slice(1, -1) : value;
+}
+
 /**
- * 只解析 key: value 形式的简单 frontmatter，够用来读 Obsidian 的标题/日期。
- * @returns {Record<string, string>}
+ * 解析 Obsidian 笔记属性：既支持 key: value，也支持 Properties 面板常用的块序列
+ * （tags:\n  - AI\n  - 随笔）。列表字段返回 string[]，其余返回 string。
+ * 不引入 YAML 依赖，只覆盖笔记属性会出现的写法。
+ * @returns {Record<string, string | string[]>}
  */
 export function parseFrontmatter(frontmatter) {
   const out = {};
-  for (const line of frontmatter.split(/\r?\n/)) {
-    const match = line.match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
+  const lines = frontmatter.split(/\r?\n/);
+  for (let i = 0; i < lines.length; i += 1) {
+    const match = lines[i].match(/^([A-Za-z_][\w-]*):\s*(.*)$/);
     if (!match) continue;
-    let value = match[2].trim();
-    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
-      value = value.slice(1, -1);
+    const key = match[1];
+    const value = match[2].trim();
+    if (value) {
+      out[key] = unquote(value);
+      continue;
     }
-    out[match[1]] = value;
+    // 空值后跟缩进行：Obsidian Properties 的列表型属性（tags / aliases 等）。
+    const items = [];
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const item = lines[j].match(/^\s+-\s+(.*)$/);
+      if (!item) break;
+      const text = unquote(item[1].trim());
+      if (text) items.push(text);
+      i = j;
+    }
+    out[key] = items.length ? items : '';
   }
   return out;
+}
+
+/** 把 tags 的一段值切成标签：行内数组 / 逗号按逗号切，单个标签允许含空格（如 Coding Plan）。 */
+function splitTagValue(text) {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const inline = /^\[.*\]$/s.test(trimmed);
+  const body = inline ? trimmed.slice(1, -1) : trimmed;
+  if (inline || /[,，]/.test(body)) return body.split(/[,，]/);
+  if (body.startsWith('#')) return body.split(/\s+(?=#)/); // tags: #AI #随笔
+  return [body];
+}
+
+/**
+ * 读取 Obsidian 的 tags 属性，统一成标签数组。
+ * 支持 Properties 块序列、行内数组、逗号分隔、# 前缀、引号与 tag 别名；
+ * 没写或写了空值返回 []，由调用方决定保留默认 / 已有标签。
+ * @returns {string[]}
+ */
+export function parseTags(frontmatter) {
+  const meta = parseFrontmatter(frontmatter);
+  const raw = meta.tags ?? meta.tag;
+  if (raw === undefined || raw === '') return [];
+  const parts = (Array.isArray(raw) ? raw : [raw]).flatMap(splitTagValue);
+  const tags = parts.map(part => unquote(part.trim()).replace(/^#+/, '').trim()).filter(Boolean);
+  return [...new Set(tags)];
 }
 
 /** YAML 标量：只在必要时加引号，保持生成的文件可读。 */
 export function yamlScalar(value) {
   const text = String(value);
-  return /[:"'#[\]{}]|^\s|\s$|\n/.test(text) ? JSON.stringify(text) : text;
+  return /[:"'#[\]{},]|^\s|\s$|\n/.test(text) ? JSON.stringify(text) : text;
 }
 
 /** 更新模式只替换 title，其余 frontmatter 原样保留（包括手工调整过的字段）。 */
@@ -93,6 +141,14 @@ export function replaceTitle(frontmatter, title) {
   const line = `title: ${yamlScalar(title)}`;
   if (/^title:[^\n]*$/m.test(frontmatter)) return frontmatter.replace(/^title:[^\n]*$/m, line);
   return frontmatter ? `${line}\n${frontmatter}` : line;
+}
+
+/** 同步 tags：替换已有的 tags 行（含 Obsidian 块序列写法），没有则追加。 */
+export function replaceTags(frontmatter, tags) {
+  const line = `tags: [${tags.map(tag => yamlScalar(tag)).join(', ')}]`;
+  const block = /^tags:[^\n]*(?:\n[ \t]+-[^\n]*)*/m;
+  if (block.test(frontmatter)) return frontmatter.replace(block, line);
+  return frontmatter ? `${frontmatter}\n${line}` : line;
 }
 
 /**
@@ -151,16 +207,23 @@ export function buildPost({ title, slug, date, tags, description, body }) {
     `title: ${yamlScalar(title)}`,
     `slug: ${slug}`,
     `date: ${date}`,
-    `tags: [${tags.join(', ')}]`
+    `tags: [${tags.map(tag => yamlScalar(tag)).join(', ')}]`
   ];
   if (description) frontmatter.push(`description: ${yamlScalar(description)}`);
   return ['---', ...frontmatter, '---', '', body.trim(), ''].join('\n');
 }
 
-export function updatePost(existing, { title, body }) {
+/**
+ * 更新只换标题与正文；传了 tags 才同步标签，否则保留文章里手工调过的值。
+ * @param {string} existing
+ * @param {{ title: string, body: string, tags?: string[] }} options
+ */
+export function updatePost(existing, { title, body, tags }) {
   const { frontmatter } = splitFrontmatter(existing);
   if (!frontmatter) throw new Error('已有文章没有 frontmatter，无法安全更新');
-  return `---\n${replaceTitle(frontmatter, title)}\n---\n\n${body.trim()}\n`;
+  let meta = replaceTitle(frontmatter, title);
+  if (tags && tags.length) meta = replaceTags(meta, tags);
+  return `---\n${meta}\n---\n\n${body.trim()}\n`;
 }
 
 /* ---------- 文件系统辅助 ---------- */
@@ -274,7 +337,7 @@ function printUsage() {
   --file <路径>   指定笔记（vault 内相对路径或绝对路径）
   --slug <slug>   覆盖 slug；更新已发布文章时可用它指定目标
   --title <标题>  覆盖标题
-  --tags <a,b>    覆盖新建文章的标签，默认「随笔」；批量时作用于所有新建文章
+  --tags <a,b>    覆盖标签（优先于笔记 tags 属性）；不传则读笔记 tags，缺省「随笔」
   --summary <文本> 覆盖新建文章的摘要；批量时作用于所有新建文章
   --vault <路径>  覆盖 Obsidian 库路径，也可设环境变量 OBSIDIAN_VAULT
   --dry-run       只预览，不写文件 / 不构建 / 不提交；批量时列出整批清单
@@ -341,13 +404,24 @@ function planNote(note, { args, vaultRoot, date, map, usedSlugs }) {
     altOverrides: existingImageAlts(existingText)
   });
 
+  // CLI 的 --tags 优先级最高；否则读笔记的 tags 属性（Obsidian Properties 常用块序列）。
+  // 笔记没写 tags 时返回空数组：新建退回默认「随笔」，更新保留文章里手工调过的标签。
+  const cliTags = args.tags
+    ? args.tags.split(/[,，]/).map(tag => tag.trim()).filter(Boolean)
+    : [];
+  const noteTags = parseTags(splitFrontmatter(note.text).frontmatter);
+  const resolvedTags = cliTags.length ? cliTags : noteTags;
+
   let content;
   if (existingText) {
-    content = updatePost(existingText, { title, body: converted.body });
+    content = updatePost(existingText, {
+      title,
+      body: converted.body,
+      tags: resolvedTags.length ? resolvedTags : undefined
+    });
   } else {
     const summary = args.summary || noteMeta.description || toSummary(rawBody);
-    const tags = args.tags ? args.tags.split(',').map(tag => tag.trim()).filter(Boolean)
-      : (noteMeta.tags ? noteMeta.tags.replace(/^\[|\]$/g, '').split(',').map(tag => tag.trim()).filter(Boolean) : ['随笔']);
+    const tags = resolvedTags.length ? resolvedTags : ['随笔'];
     content = buildPost({ title, slug, date, tags, description: summary, body: converted.body });
   }
 
@@ -365,7 +439,7 @@ function planNote(note, { args, vaultRoot, date, map, usedSlugs }) {
 
 function planContrast(plan) {
   if (plan.unchanged) return '与已发布文章一致，无需更新';
-  return plan.existingText ? '正文有变化，将保留原有 frontmatter' : '新文章';
+  return plan.existingText ? '内容有变化，将同步标题 / 正文 / tags，其余 frontmatter 保留' : '新文章';
 }
 
 function printPlan(plan, { dryRun, compact }) {

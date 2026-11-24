@@ -55,10 +55,11 @@ bun run publish --full                                  # 发布时额外跑全�
 bun run publish --all                                   # 批量：库里全部可发布笔记，一次 build + 一次 commit + 一次 push
 bun run publish --all --dry-run                         # 批量预览：列出整批「新建 / 更新 / 无变化」清单
 bun run publish --all --no-push                         # 批量写盘 + 一次 build + 本地 commit，不推送
-bun run publish --all --tags "AI,随笔" --summary "摘要"   # 批量自定义新建文章的标签与摘要
+bun run publish --all --tags "AI,随笔" --summary "摘要"   # 批量统一覆盖标签与摘要
+bun run publish --tags "AI,随笔" --dry-run               # 显式覆盖标签（优先于笔记 tags 属性）
 bun run publish --file "随笔/某篇.md"                    # 指定笔记（vault 内相对路径或绝对路径）
 bun run publish --slug my-custom-slug --dry-run          # 自定义 slug；配合 --file 可指回已发布文章做强制更新
-bun run publish --title "标题" --tags "AI,随笔" --summary "一句话摘要"   # 覆盖新建文章的字段
+bun run publish --title "标题" --tags "AI,随笔" --summary "一句话摘要"   # 覆盖标题 / 标签 / 摘要
 bun run publish --file "新名字.md" --slug 原-slug         # 笔记改名后，更新回原来那篇文章
 bun run publish --vault "/path/to/vault"                # 换 Obsidian 库（等价 OBSIDIAN_VAULT）
 bun run publish --dry-run --vault "/path/to/vault"       # 换库后先预览
@@ -74,7 +75,7 @@ bun run publish --full --no-push                        # 全套卡口 + 本地�
 | `--file <路径>` | 字符串 | — | 指定单篇笔记；**空白 / 极短笔记只有用它才能强制发布** |
 | `--slug <slug>` | 字符串 | 标题生成 | 覆盖 slug；更新已发布文章时用来指定目标 |
 | `--title <标题>` | 字符串 | 笔记 frontmatter 或文件名 | 覆盖标题 |
-| `--tags <a,b>` | 英文逗号分隔 | `随笔` | 覆盖**新建**文章的标签；`--all` 时作用于所有新建文章 |
+| `--tags <a,b>` | 中英文逗号分隔 | 笔记 `tags` 属性 | 显式覆盖标签，优先级最高；`--all` 时作用于整批；不传则读笔记 tags，笔记没写时新建默认「随笔」、更新保留原标签 |
 | `--summary <文本>` | 字符串 | 正文压成的一行短句 | 覆盖**新建**文章的摘要；`--all` 时作用于所有新建文章 |
 | `--vault <路径>` | 路径 | `~/Documents/Obsidian Vault` | 覆盖库路径；也可用 `OBSIDIAN_VAULT` |
 | `--dry-run` | 标志 | 关 | 只预览，不写任何文件、不构建、不提交；批量时列整批清单 |
@@ -84,12 +85,24 @@ bun run publish --full --no-push                        # 全套卡口 + 本地�
 
 **互斥规则**：`--all` 不能与 `--file` / `--slug` / `--title` 同用（这三个只作用于单篇），同时传入会直接报错。`--tags` / `--summary` / `--dry-run` / `--no-push` / `--full` / `--vault` 都可以和 `--all` 组合。
 
+**笔记属性怎么被识别**：脚本读笔记的 `title` / `description` / `tags` 三个属性。`tags` 支持 Obsidian Properties 面板的标准块序列，统一转成 Astro 内容集合能识别的 `tags: [AI, 随笔]` 数组：
+
+```yaml
+tags:
+  - AI
+  - 随笔
+```
+
+也认 `tags: [AI, 随笔]`（行内数组）、`tags: AI,随笔`（逗号分隔）、`tags: #AI #随笔`（`#` 前缀）与 `tag:` 别名，重复标签自动去重。优先级：`--tags` > 笔记 tags > 新建默认「随笔」；更新已发布文章时，笔记写了 tags 就同步过来，没写则保留文章里手工调过的标签。笔记的 `slug` / `date` 属性暂不参与（slug 由标题生成、date 取发布当天），避免含空格的自定义 slug 或旧日期改变永久链接。
+
 ### 2.3 按场景查命令
 
 | 想做的事 | 命令 |
 | :--- | :--- |
 | 日常发布 / 同步最新一篇 | `bun run publish` |
-| 发之前看一眼会生成什么 | `bun run publish --dry-run` |
+| 发之前看一眼会生成什么（含笔记 tags 是否生效） | `bun run publish --dry-run` |
+| 在 Obsidian 里改了 tags，想同步到站点 | 直接再跑 `bun run publish`（笔记写了 tags 就会覆盖） |
+| 不用笔记 tags，临时统一指定标签 | `bun run publish --tags "AI,随笔"` |
 | 一次写好了多篇 | `bun run publish --all --dry-run` → 确认后 `bun run publish --all` |
 | 只发指定的某一篇 | `bun run publish --file "随笔/某篇.md"` |
 | 笔记改名后仍更新原链接 | `bun run publish --file "新名字.md" --slug <原slug>` |
@@ -107,7 +120,7 @@ bun run publish --full --no-push                        # 全套卡口 + 本地�
 | Git | `git add -- <本次文章 / 配图 / 映射表>` → `git commit -m "feat: ..."` → `git push github main` | 同左 |
 | 无变化时 | 跳过提交与推送，提示「内容无变化」 | 同左 |
 
-`--all` 会先为每篇算好发布计划，再统一写盘，**整批只跑一次 build、一次 commit、一次 push**，N 篇文章也只触发一次云端部署。更新已有文章时保留原 `date` / `slug` / `description` / `tags` / `image` 与图片 alt，只替换标题和正文；`scripts/obsidian-publish-map.json` 记录「笔记 → slug」，不要手工删它。
+`--all` 会先为每篇算好发布计划，再统一写盘，**整批只跑一次 build、一次 commit、一次 push**，N 篇文章也只触发一次云端部署。更新已有文章时保留原 `date` / `slug` / `description` / `image` 与图片 alt，只替换标题、正文与笔记里明确写过的 `tags`（笔记没写 tags 时文章原有标签也保留）；`scripts/obsidian-publish-map.json` 记录「笔记 → slug」，不要手工删它。
 
 ---
 

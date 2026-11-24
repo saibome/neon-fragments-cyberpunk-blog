@@ -10,8 +10,10 @@ import {
   toSummary,
   splitFrontmatter,
   parseFrontmatter,
+  parseTags,
   yamlScalar,
   replaceTitle,
+  replaceTags,
   buildPost,
   updatePost,
   convertEmbeds,
@@ -21,10 +23,16 @@ import {
   hasSubstance,
   collectNotes
 } from '../scripts/publish-obsidian.mjs';
+import { postSchema } from '../src/lib/post-schema';
 
 const scriptPath = fileURLToPath(new URL('../scripts/publish-obsidian.mjs', import.meta.url));
 const projectRoot = path.resolve(path.dirname(scriptPath), '..');
 const postsDir = path.join(projectRoot, 'src', 'content', 'posts');
+
+// bun 内置 YAML 解析与 Astro 读取 frontmatter 的行为一致，用来验证生成结果真能被内容集合识别。
+const yaml = (globalThis as typeof globalThis & {
+  Bun?: { YAML?: { parse: (text: string) => Record<string, unknown> } };
+}).Bun?.YAML;
 
 function runPublish(args: string[]) {
   return execFileSync(process.execPath, [scriptPath, ...args], {
@@ -72,6 +80,86 @@ test('含特殊字符的标题会被引号包裹', () => {
   assert.equal(yamlScalar('普通标题'), '普通标题');
   assert.equal(yamlScalar('a: b'), '"a: b"');
   assert.equal(replaceTitle('slug: x\ndate: 2026-11-23', '新标题'), 'title: 新标题\nslug: x\ndate: 2026-11-23');
+});
+
+test('Obsidian Properties 的块序列 tags 能被解析，多种写法统一成标签数组', () => {
+  const block = 'title: 站在火星看地球\ndate: 2026-11-25\ntags:\n  - AI\n  - 随笔\ndescription: 一段摘要';
+  const meta = parseFrontmatter(block);
+  assert.deepEqual(meta.tags, ['AI', '随笔'], '块序列属性不能再被当成空值丢掉');
+  assert.equal(meta.title, '站在火星看地球');
+  assert.equal(meta.date, '2026-11-25');
+  assert.equal(meta.description, '一段摘要');
+
+  assert.deepEqual(parseTags(block), ['AI', '随笔']);
+  assert.deepEqual(parseTags('tags: [AI, GLM, Coding Plan]'), ['AI', 'GLM', 'Coding Plan']);
+  assert.deepEqual(parseTags('tags: AI, 随笔'), ['AI', '随笔']);
+  assert.deepEqual(parseTags('tags:\n  - #AI\n  - "随笔"'), ['AI', '随笔']);
+  assert.deepEqual(parseTags('tag: #AI #随笔'), ['AI', '随笔']);
+  assert.deepEqual(parseTags('tags: AI, AI'), ['AI'], '重复标签去重');
+  assert.deepEqual(parseTags('tags:'), []);
+  assert.deepEqual(parseTags('title: 无标签'), []);
+  assert.deepEqual(parseTags(''), []);
+});
+
+test('生成的 tags 是合法 YAML 数组，且能被 Astro 内容集合 schema 接受', () => {
+  assert.ok(yaml, '需要 bun 内置 YAML 解析来做真实校验');
+  const post = buildPost({
+    title: '站在火星看地球',
+    slug: 'mars',
+    date: '2026-11-25',
+    tags: ['AI', 'Coding Plan', 'a: b'],
+    description: '一段摘要',
+    body: '正文'
+  });
+  const frontmatter = splitFrontmatter(post).frontmatter;
+  assert.match(frontmatter, /tags: \[AI, Coding Plan, "a: b"\]/, '含特殊字符的标签必须转义');
+  const parsed = yaml.parse(frontmatter);
+  assert.deepEqual(parsed.tags, ['AI', 'Coding Plan', 'a: b']);
+  const result = postSchema.safeParse(parsed);
+  assert.equal(result.success, true, 'Astro schema 必须识别生成的 tags');
+  assert.deepEqual(result.success ? result.data.tags : [], ['AI', 'Coding Plan', 'a: b']);
+});
+
+test('更新时同步笔记 tags；笔记没写 tags 则保留文章里手工调过的标签', () => {
+  assert.ok(yaml, '需要 bun 内置 YAML 解析来做真实校验');
+  const existing = buildPost({
+    title: '旧标题', slug: 'x', date: '2026-11-25', tags: ['随笔'], description: '手工摘要', body: '旧正文'
+  });
+
+  const synced = updatePost(existing, { title: '新标题', body: '新正文', tags: ['AI', '随笔'] });
+  const syncedFm = splitFrontmatter(synced).frontmatter;
+  assert.match(syncedFm, /tags: \[AI, 随笔\]/);
+  assert.match(syncedFm, /description: 手工摘要/, '其它手工字段不能被覆盖');
+  assert.deepEqual(yaml.parse(syncedFm).tags, ['AI', '随笔']);
+
+  const kept = updatePost(existing, { title: '新标题', body: '新正文' });
+  assert.match(splitFrontmatter(kept).frontmatter, /tags: \[随笔\]/);
+
+  // 已有文章把 tags 写成 Obsidian 块序列时，替换后不能留下旧的 - 列表行。
+  const blockPost = '---\ntitle: 旧标题\nslug: x\ndate: 2026-11-25\ntags:\n  - 随笔\ndescription: 手工摘要\n---\n\n旧正文\n';
+  assert.equal(replaceTags('tags:\n  - 随笔\ndescription: 手工摘要', ['AI']), 'tags: [AI]\ndescription: 手工摘要');
+  const replaced = updatePost(blockPost, { title: '新标题', body: '新正文', tags: ['AI'] });
+  const replacedFm = splitFrontmatter(replaced).frontmatter;
+  assert.ok(!replacedFm.includes('  - 随笔'), '旧块序列应被整块替换');
+  assert.deepEqual(yaml.parse(replacedFm).tags, ['AI']);
+});
+
+test('dry-run 把笔记块序列 tags 带进文章；--tags 显式指定时优先', () => {
+  const vault = fs.mkdtempSync(path.join(os.tmpdir(), 'nf-note-tags-'));
+  try {
+    fs.writeFileSync(
+      path.join(vault, '火星笔记.md'),
+      '---\ntitle: 站在火星看地球\nslug: mars\ntags:\n  - AI\n  - 随笔\n---\n\n这是一篇写好了的完整文章内容，用来验证笔记属性能被识别。'
+    );
+    const fromNote = runPublish(['--dry-run', '--vault', vault]);
+    assert.match(fromNote, /tags: \[AI, 随笔\]/, '笔记属性必须进入生成的 frontmatter');
+    assert.match(fromNote, /\[dry-run\] 未写入任何文件/);
+
+    const fromCli = runPublish(['--dry-run', '--vault', vault, '--tags', 'CLI,标签']);
+    assert.match(fromCli, /tags: \[CLI, 标签\]/, 'CLI 显式参数优先级最高');
+  } finally {
+    fs.rmSync(vault, { recursive: true, force: true });
+  }
 });
 
 test('Obsidian wiki 图片转成 Astro 相对资源路径并给出复制清单', () => {

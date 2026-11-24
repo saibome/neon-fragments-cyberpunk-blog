@@ -119,19 +119,29 @@ bun run publish --dry-run           # 只预览单篇会生成什么，不落盘
 bun run publish --no-push           # 本地提交，先不推送
 bun run publish --file "笔记.md"     # 指定 vault 内的笔记（相对路径或绝对路径）
 bun run publish --slug my-post      # 指定 slug，也可用来强制更新某篇
-bun run publish --tags AI,随笔      # 覆盖新建文章的标签（默认「随笔」）；批量时作用于所有新建文章
+bun run publish --tags AI,随笔      # 覆盖标签（优先于笔记 tags 属性）；不传则读笔记 tags，缺省「随笔」
 bun run publish --full              # 额外跑 typecheck / lint / test / check:edgeone
 ```
 
 | 环节 | 行为 |
 | :--- | :--- |
 | 选文章 | 默认只取修改时间最新的一篇；`--all` 取全部。两者都跳过 `.obsidian`、空白 / 未写完的笔记与写作项目里 `binder-status: draft` + `word-count: 0` 的空模板；想强制发布某篇用 `--file` |
-| frontmatter | 新建时生成 `title / slug / date / tags / description`；标题取笔记 frontmatter 或文件名，slug 取标题里的英文数字 token（纯中文退回 `post-YYYYMMDD`），摘要从正文压成一行短句，让 OG 卡片与 RSS 描述保持简洁 |
+| frontmatter | 新建时生成 `title / slug / date / tags / description`；标题与 `description` 取笔记属性或文件名，`tags` 读笔记的 tags 属性，slug 取标题里的英文数字 token（纯中文退回 `post-YYYYMMDD`），摘要从正文压成一行短句，让 OG 卡片与 RSS 描述保持简洁 |
 | 配图 | `![[附件]]` 转成 `![alt](./images/<slug>.<ext>)`，附件复制到 `src/content/posts/images/`；相对路径让 Astro 自动转 webp、补尺寸与懒加载，重复发布不会堆积文件 |
-| 更新 | `scripts/obsidian-publish-map.json` 记录「笔记 → slug」；同一篇再跑会沿用原 `slug` 与 `date`，**永久链接不变**，且只替换标题与正文，手工调过的 `description` / `tags` / `image` 全部保留 |
+| 更新 | `scripts/obsidian-publish-map.json` 记录「笔记 → slug」；同一篇再跑会沿用原 `slug` 与 `date`，**永久链接不变**，只替换标题、正文与笔记里明确写过的 `tags`；手工调过的 `description` / `image` 保留，笔记没写 tags 时文章原有标签也保留 |
 | 校验 | 默认只跑 `bun run build`（内容集合 schema 校验 + 页面 / RSS / sitemap / OG 图），约 2 秒；`--full` 才跑全套质量卡口 |
 | 发布 | 内容无变化直接跳过提交；否则只 `git add` 本次相关文件、commit、push `github/main` 触发 EdgeOne 自动部署 |
 | 批量 `--all` | 先为每篇算出发布计划，再统一写盘、**只跑一次 build、一次 commit、一次 push**；已登记的笔记走更新，空笔记自动跳过，同批纯中文标题撞 slug 时自动加 `-2`，`--dry-run` 列出整批清单且不写任何文件。不能与 `--file` / `--slug` / `--title` 同用（这些只作用于单篇） |
+
+**笔记属性 → 文章 frontmatter**：`title` / `description` / `tags` 会被识别。tags 支持 Obsidian Properties 面板的标准块序列、行内数组、逗号分隔、`#` 前缀与 `tag` 别名：
+
+```yaml
+tags:
+  - AI
+  - 随笔
+```
+
+统一转成 Astro 内容集合要求的 `tags: [AI, 随笔]` 数组。优先级是 `--tags` > 笔记 tags > 新建默认「随笔」；更新已发布文章时，笔记写了 tags 就同步过来，没写则保留文章里手工调过的标签。笔记里的 `slug` / `date` 属性暂不参与（slug 由标题生成、date 取发布当天），避免含空格的自定义 slug 或旧日期改变永久链接。
 
 笔记改了想同步，直接再跑一次 `bun run publish` 即可；一次写好了多篇就用 `bun run publish --all`（建议先 `--all --dry-run` 看整批清单），这样 N 篇也只触发一次云端部署。想调整摘要、标签、封面，直接编辑 `src/content/posts/` 里生成的 `.md`，脚本更新时不会覆盖这些字段。换了 Obsidian 库就设 `OBSIDIAN_VAULT=/path/to/vault`（或 `--vault`），笔记改了名用 `--slug <原 slug>` 指回已发布的文章；库里只剩空笔记时脚本会列出候选并停下，不会误发。云端构建约 30 秒生效，这段是 GitHub → EdgeOne 的固有耗时，本地流程已压到一条命令。
 
